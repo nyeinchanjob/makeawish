@@ -1,17 +1,43 @@
 import { CosmosClient, type Container } from "@azure/cosmos";
 import type { Wish } from "../../shared/wishes";
 
-const endpoint = process.env.COSMOS_ENDPOINT;
-const key = process.env.COSMOS_KEY;
-const client =
-  endpoint && key ? new CosmosClient({ endpoint, key }) : undefined;
+let client: CosmosClient | undefined;
+let containerPromise: Promise<Container> | undefined;
 
-export function getContainer(): Container {
-  if (!client)
-    throw new Error("COSMOS_ENDPOINT and COSMOS_KEY must be configured.");
-  return client
-    .database(process.env.COSMOS_DATABASE || "makeawish-db")
-    .container(process.env.COSMOS_CONTAINER || "wishes");
+export function getContainer(): Promise<Container> {
+  if (!containerPromise) {
+    // Defer configuration and provisioning so failures reach the HTTP error boundary.
+    containerPromise = initializeContainer().catch((error: unknown) => {
+      containerPromise = undefined;
+      throw new Error("Cosmos DB initialization failed.", { cause: error });
+    });
+  }
+  return containerPromise;
+}
+
+async function initializeContainer(): Promise<Container> {
+  const endpoint = process.env.COSMOS_ENDPOINT;
+  const key = process.env.COSMOS_KEY;
+  if (!endpoint?.trim() || !key?.trim())
+    throw new Error(
+      "COSMOS_ENDPOINT and COSMOS_KEY must be configured in Azure Static Web Apps application settings.",
+    );
+  client ??= new CosmosClient({ endpoint, key });
+  const { database } = await client.databases.createIfNotExists({
+    id: process.env.COSMOS_DATABASE || "makeawish-db",
+  });
+  const { container, resource } = await database.containers.createIfNotExists({
+    id: process.env.COSMOS_CONTAINER || "wishes",
+    partitionKey: { paths: ["/plant"] },
+  });
+  if (
+    resource?.partitionKey &&
+    (resource.partitionKey.paths.length !== 1 ||
+      resource.partitionKey.paths[0] !== "/plant")
+  ) {
+    throw new Error("The wishes container must use the /plant partition key.");
+  }
+  return container;
 }
 
 export function errorCode(error: unknown): number | undefined {

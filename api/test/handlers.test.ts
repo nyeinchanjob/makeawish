@@ -17,15 +17,13 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   patch: vi.fn(),
   delete: vi.fn(),
+  getContainer: vi.fn(),
 }));
 vi.mock("../src/store", async (importOriginal) => {
   const original = await importOriginal<typeof import("../src/store")>();
   return {
     ...original,
-    getContainer: () => ({
-      items: { query: mocks.query, create: mocks.create, upsert: mocks.upsert },
-      item: mocks.item,
-    }),
+    getContainer: mocks.getContainer,
   };
 });
 
@@ -58,6 +56,10 @@ describe("Cosmos-backed Functions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     delete process.env.ADMIN_PIN;
+    mocks.getContainer.mockResolvedValue({
+      items: { query: mocks.query, create: mocks.create, upsert: mocks.upsert },
+      item: mocks.item,
+    });
     mocks.item.mockReturnValue({
       read: mocks.read,
       patch: mocks.patch,
@@ -200,8 +202,51 @@ describe("Cosmos-backed Functions", () => {
   it("does not default to approval when Cosmos settings cannot be read", async () => {
     mocks.read.mockRejectedValue(new Error("Database offline"));
     const result = await invoke(wishes, request("POST", "wishes", record));
-    expect(result.status).toBe(503);
+    expect(result.status).toBe(500);
+    expect(result.jsonBody.details).toBe("Database offline");
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("returns initialization diagnostics rather than a generic 503", async () => {
+    mocks.getContainer.mockRejectedValue(
+      new Error("Cosmos DB initialization failed.", {
+        cause: new Error("COSMOS_ENDPOINT and COSMOS_KEY must be configured."),
+      }),
+    );
+    const result = await invoke(wishes, request("POST", "wishes", record));
+    expect(result.status).toBe(500);
+    expect(result.jsonBody).toEqual({
+      error: "The festival service could not complete the request.",
+      details:
+        "Cosmos DB initialization failed. COSMOS_ENDPOINT and COSMOS_KEY must be configured.",
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("does not misreport a missing database during initialization as a missing wish", async () => {
+    mocks.getContainer.mockRejectedValue(
+      new Error("Cosmos DB initialization failed.", {
+        cause: Object.assign(new Error("Database not found"), { code: 404 }),
+      }),
+    );
+    const result = await invoke(settings, request("GET", "settings"));
+    expect(result.status).toBe(500);
+    expect(result.jsonBody.details).toContain("Database not found");
+  });
+
+  it("redacts server secrets from diagnostic error messages", async () => {
+    vi.stubEnv("COSMOS_KEY", "private-cosmos-key");
+    vi.stubEnv("ADMIN_PIN", "private-admin-pin");
+    try {
+      mocks.read.mockRejectedValue(
+        new Error("Failure: private-cosmos-key private-admin-pin"),
+      );
+      const result = await invoke(wishes, request("POST", "wishes", record));
+      expect(result.status).toBe(500);
+      expect(result.jsonBody.details).toBe("Failure: [redacted] [redacted]");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it.each([

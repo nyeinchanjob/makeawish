@@ -127,7 +127,7 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
           brighter.
         </p>
         <Link
-          to="/"
+          to="/display"
           className="visitor-success-link inline-flex rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-glow"
         >
           VIEW THE FESTIVAL SKY

@@ -131,7 +131,7 @@ function Admin() {
         >
           {busy ? "Verifying…" : "Unlock dashboard"}
         </button>
-        <Link to="/" className="block text-center text-sm text-gold">
+        <Link to="/display" className="block text-center text-sm text-gold">
           Back to festival sky
         </Link>
       </form>

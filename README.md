@@ -26,11 +26,16 @@ npm run dev
 
 ## Pages
 
-- `/`: live approved wishes from HTY, HB, CDC and JC, with aggregate plant counts.
-- `/submit`: employee name, company email, plant and a wish with at least three
+- `/`: employee name, company email, plant and a wish with at least three
   non-whitespace characters, with no application character maximum.
+- `/display`: live TV display of approved wishes from HTY, HB, CDC and JC, with aggregate plant counts.
+- `/submit`: redirects to `/`, preserving existing submission QR links.
 - `/admin`: PIN login, auto-approval, moderation, search, CSV export and confirmed clear-all.
-- `/display`: compatibility alias for the display; `/admin/login` redirects to `/admin`.
+- `/admin/login`: redirects to `/admin`.
+
+QR codes can point to the root domain to open the submission form immediately.
+Static Web Apps rewrites non-API/non-asset navigation to `/index.html`, supporting
+direct visits and refreshes on `/display`, `/submit` and `/admin`.
 
 The display renders its last public snapshot from localStorage immediately and refreshes
 every five seconds without a blocking spinner. Only the latest 120 approved wishes are
@@ -41,16 +46,28 @@ guarantee literal zero-millisecond browser rendering or the first visit's load t
 Do not use the former browser-only demo records as event data; they are not uploaded.
 
 The clean display has no title stack or demo banner, leaving the official background
-artwork unobstructed. Six non-overlapping glass cards occupy two staggered rows of three
-on wide screens (two columns on phones). The center-left stage is at most 1120px wide,
-between 22% and 78% of the screen, with 20px desktop card gaps and reserved travel space
-clear of the artwork and footer. When fewer than six approved wishes exist, only
-those available are shown, without duplicates. Two aligned cards cycle every three seconds:
-their complete frames, glass, text and footers rise and fade in together, drift upward,
-then rise and fade out before replacement. New arrivals take priority in the next
+visible. Only unique approved wishes are shown, up to fourteen at once.
+One to four wishes form a centered cluster with matching columns; five to eight expand
+into three or four vertically centered desktop columns. Nine or more use the full
+four-column independent flex masonry wall. Phones/tablets use one or two columns.
+The full-width upper sky stage
+runs from 2.5% to 78% of the screen with 3% side margins and 16px gaps. Only column four
+has a 210px top spacer to clear the artwork; the other columns have modest top spacing.
+Initial and incoming wishes balance estimated/measured column heights, then stay locked
+to their assigned column through edits, font loading, moderation and rotations.
+Only a responsive or wish-count-driven column-count change redistributes cards.
+When more than fourteen unique wishes are available, every three seconds one column's
+top card fades upward and out; a different, off-screen wish enters
+at the bottom of that same column. Remaining items glide vertically for 700ms, without
+cross-column reflow. When fewer than fourteen approved wishes exist, only those available
+are shown, without duplicates. New arrivals take priority in the next
 rotation and briefly glow with a `✨ New` badge.
-Messages use adaptive font sizes and a maximum six-line clamp; full text remains available
-in Admin. Wishes have no application length cap, but Cosmos DB's **2 MB document limit**
+When all wishes are already visible, cards remain mounted: no repeated frames or
+duplicates are generated to fill slots. Cards have aligned widths up to 380px, compact
+20px corner ornaments, and natural content height. Long messages use a smaller font,
+with no height cap, truncation or inner scrollbars. The whole wall scrolls if full
+messages exceed the safe sky area.
+Wishes have no application length cap, but Cosmos DB's **2 MB document limit**
 and hosting/browser-storage limits still apply. Cosmos size failures return HTTP 413.
 
 ## Azure Static Web Apps and Cosmos DB
@@ -60,8 +77,11 @@ TypeScript Functions in `api`, and deploys both to Static Web Apps. The in-memor
 middleware is **serve-only**, never included in a production build. Static Web Apps
 routes `/api/*` to its built-in Functions; no external API URL is used.
 
-1. Provision a Cosmos DB **NoSQL** database `makeawish-db` and container `wishes` with
-   partition key **`/plant`**. Keep consistent automatic indexing (including `/status/?`
+1. Provision a Cosmos DB **NoSQL account**. On the first API request, the app creates
+   database `makeawish-db` and container `wishes` with partition key **`/plant`** if
+   missing; the account key must permit database/container creation. An existing
+   container with a different partition key fails explicitly rather than being replaced.
+   Keep consistent automatic indexing (including `/status/?`
    and `/created_on/?`); a composite index on `status ASC, created_on DESC` can reduce
    the RU cost of filtered recent-wish queries. This implementation deliberately fans
    out across the four plants for the combined display; `/plant` has low cardinality,
@@ -80,6 +100,24 @@ routes `/api/*` to its built-in Functions; no external API URL is used.
    The API uses the Node 20 Functions runtime. Cosmos credentials never reach the browser.
    The client is reused across warm invocations; the JavaScript SDK uses HTTPS gateway
    connections (not the .NET SDK's Direct/TCP mode).
+
+The workflow compiles and installs API dependencies under Node 20 before switching
+to Node 24 for the frontend. The Functions entry is `api/dist/api/src/index.js`;
+compiled shared validation is included under `api/dist/shared`. The prebuilt API
+deployment includes `api/package.json`, `api/host.json`, `api/dist` and production
+dependencies. No Cosmos network operation or credential validation runs during worker
+module loading. Requests share a cached initialization promise; failed provisioning
+is retried on the next request without replacing the singleton client.
+
+For a submission failure, inspect the JSON response in the browser Network tab.
+Unexpected/configuration/Cosmos failures return HTTP **500** with `{ error, details }`,
+with Cosmos keys and configured admin PINs redacted. Validation/authentication,
+wish-not-found, size-limit and rate-limit responses keep their specific statuses.
+Enable Application Insights for full server logs. A platform-level 503 before the
+handler runs still requires checking Azure deployment/runtime logs.
+The root `.env` is local-only: it does **not** populate Azure application settings.
+After changing settings or deploying these fixes, verify the live API before the event;
+this repository's mocked tests do not establish live account connectivity.
 
 Wishes use UUID v4 `id`, `employee_name`, normalized company `email`, `plant`, `message`,
 `status`, and ISO `created_on`. The singleton `{ id: "app-settings", plant: "SYSTEM",
@@ -180,4 +218,4 @@ npm run build
 API tests mock the Cosmos boundary; a real account/emulator smoke test is still needed
 after configuring credentials. Production assets are `/background.png`, `/qr-code.png`
 and `/TCCC-UnityText-Regular.ttf`. Ensure the supplied QR image encodes the deployed
-`/submit` URL before displaying it at the event.
+root URL (or the compatible `/submit` URL) before displaying it at the event.

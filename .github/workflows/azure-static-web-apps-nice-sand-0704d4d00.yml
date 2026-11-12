@@ -22,11 +22,18 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci --prefix api
+      - run: npm run build --prefix api
+      - name: Verify Functions deployment entry
+        run: node -e "const fs = require('node:fs'); const pkg = require('./api/package.json'); if (!fs.existsSync('api/' + pkg.main)) throw new Error('Compiled Functions entry is missing');"
+      - uses: actions/setup-node@v5
+        with:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm ci --prefix api
-      - run: npm run build --prefix api
       - run: npm run build
       - name: Build And Deploy
         id: builddeploy

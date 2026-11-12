@@ -50,7 +50,7 @@ export function Display() {
           </p>
         </div>
         <Link
-          to="/submit"
+          to="/"
           className="display-qr-section"
           aria-label="Share your light"
         >

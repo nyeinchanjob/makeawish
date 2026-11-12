@@ -123,6 +123,9 @@ describe("VisitorWishForm required fields and lantern launch", () => {
     fireEvent.submit(form);
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+    expect(
+      screen.getByRole("link", { name: "VIEW THE FESTIVAL SKY" }),
+    ).toHaveAttribute("href", "/display");
     const lantern = document.body.querySelector(".wish-launch-lantern");
     expect(lantern).toHaveStyle({ left: "250px", top: "230px" });
   });

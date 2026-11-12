@@ -50,6 +50,24 @@ function response(jsonBody: unknown, status = 200): HttpResponseInit {
   return { status, jsonBody, headers: { "Cache-Control": "no-store" } };
 }
 
+function errorDetails(error: unknown): string {
+  let details =
+    error instanceof Error
+      ? error.message
+      : error &&
+          typeof error === "object" &&
+          "message" in error &&
+          typeof error.message === "string"
+        ? error.message
+        : String(error);
+  if (error instanceof Error && error.cause)
+    details += ` ${errorDetails(error.cause)}`;
+  for (const secret of [process.env.COSMOS_KEY, process.env.ADMIN_PIN]) {
+    if (secret) details = details.split(secret).join("[redacted]");
+  }
+  return details;
+}
+
 export function withErrors(
   handler: (request: HttpRequest) => Promise<HttpResponseInit>,
 ) {
@@ -82,8 +100,11 @@ export function withErrors(
           headers: { "Cache-Control": "no-store", "Retry-After": "5" },
         };
       return response(
-        { error: "The festival service is unavailable. Please try again." },
-        503,
+        {
+          error: "The festival service could not complete the request.",
+          details: errorDetails(error),
+        },
+        500,
       );
     }
   };
@@ -95,7 +116,7 @@ export async function wishes(request: HttpRequest): Promise<HttpResponseInit> {
     if (status !== "approved" && status !== "all")
       throw new HttpError(400, "Invalid status filter.");
     if (status === "all") requireAdmin(request);
-    const container = getContainer();
+    const container = await getContainer();
     if (status === "all") {
       const { resources } = await container.items
         .query<Wish>(
@@ -131,7 +152,7 @@ export async function wishes(request: HttpRequest): Promise<HttpResponseInit> {
       error instanceof Error ? error.message : "Invalid wish.",
     );
   }
-  const container = getContainer();
+  const container = await getContainer();
   const settings = await readSettings(container);
   const wish: Wish = {
     ...valid,
@@ -153,7 +174,7 @@ export async function wishById(
   const input = await body(request);
   if (!isPlant(input.plant))
     throw new HttpError(400, "A valid plant partition key is required.");
-  const item = getContainer().item(id, input.plant);
+  const item = (await getContainer()).item(id, input.plant);
   if (request.method === "DELETE") {
     await item.delete();
     return response({ deleted: true });
@@ -186,7 +207,7 @@ export async function clearWishes(
   request: HttpRequest,
 ): Promise<HttpResponseInit> {
   requireAdmin(request);
-  const container = getContainer();
+  const container = await getContainer();
   const iterator = container.items.query<{ id: string; plant: string }>(
     "SELECT c.id, c.plant FROM c WHERE c.id != 'app-settings'",
     { maxItemCount: 100 },
@@ -217,11 +238,12 @@ export async function settings(
 ): Promise<HttpResponseInit> {
   if (request.method === "PATCH") requireAdmin(request);
   if (request.method === "GET")
-    return response(await readSettings(getContainer()));
+    return response(await readSettings(await getContainer()));
   const input = await body(request);
   if (typeof input.autoApprove !== "boolean")
     throw new HttpError(400, "autoApprove must be a boolean.");
-  await getContainer().items.upsert({
+  const container = await getContainer();
+  await container.items.upsert({
     id: "app-settings",
     plant: "SYSTEM",
     autoApprove: input.autoApprove,
