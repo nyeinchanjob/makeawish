@@ -10,8 +10,8 @@ import { localLanternApi } from "./src/server/local-lantern-api";
 export default defineConfig({
   plugins: [localLanternApi()],
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
+    spa: {
+      enabled: true,
+    },
   },
 });
