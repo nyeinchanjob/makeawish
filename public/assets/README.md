@@ -1,6 +1,8 @@
 # Festival assets
 
-Add the provided Ta Saung Tine background at `background.png` and event QR
+To use a Ta Saung Tine background, add it at `background.png` and set
+`--festival-background-image` in `src/styles.css` to `url("/assets/background.png")`.
+The gradient is used until a background is configured. Add the event QR
 image at `qr.png`. The display checks for `/assets/qr.png`; until it exists,
 it shows a labeled placeholder instead of a broken image.
 

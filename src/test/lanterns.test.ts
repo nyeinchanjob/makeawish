@@ -128,6 +128,12 @@ describe("lanternService API repository", () => {
     ).rejects.toThrow("The lantern data could not be read or saved.");
   });
 
+  it("reports the status when the API returns a non-JSON error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Not found", { status: 404 })));
+
+    await expect(lanternService.getAll()).rejects.toThrow("The request failed (404).");
+  });
+
   it("does not send a submission without an employee ID", async () => {
     await expect(
       lanternService.submit({

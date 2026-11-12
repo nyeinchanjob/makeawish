@@ -55,6 +55,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     body = await response.json();
   } catch {
+    if (!response.ok) throw new Error(`The request failed (${response.status}).`);
     throw new Error("The lantern API returned an invalid response.");
   }
   if (!response.ok) {

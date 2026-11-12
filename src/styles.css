@@ -60,7 +60,7 @@
   --gold: oklch(0.97 0.02 92);
   --ember: oklch(0.75 0.18 45);
   --success: oklch(0.75 0.16 150);
-  --festival-background-image: url("/assets/background.png");
+  --festival-background-image: none;
   --myanmar-font-file: url("/assets/fonts/myanmar.woff2");
   --sky: radial-gradient(ellipse at 50% 110%, oklch(0.55 0.15 28 / 0.3), transparent 55%),
     radial-gradient(ellipse at 20% 0%, oklch(0.4 0.1 250 / 0.4), transparent 60%),
