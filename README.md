@@ -22,3 +22,12 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Azure Static Web Apps
+
+The GitHub Actions workflow builds the SPA and copies its generated `_shell.html` to
+`index.html`, which Azure requires as the default document. The
+`public/staticwebapp.config.json` navigation fallback serves that document for client-side routes.
+
+The local lantern API runs only through the Vite development server; the static deployment does
+not include an API or persistent storage.
