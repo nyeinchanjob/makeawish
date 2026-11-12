@@ -130,7 +130,7 @@ export function handleLocalRequest(
         throw new LocalApiError(401, "Incorrect admin PIN.");
     };
     if (path === "/settings") {
-      if (method === "PATCH") {
+      if (method === "PATCH" || method === "PUT") {
         admin();
         const body = requireBody(request.data);
         if (typeof body["autoApprove"] !== "boolean")

@@ -100,6 +100,40 @@ describe("dev-only Vite middleware", () => {
     expect(wish.status).toBe("approved");
   });
 
+  it("supports PUT settings with the same authentication and validation as PATCH", () => {
+    const state = createLocalState();
+    expect(
+      handleLocalRequest(state, {
+        path: "/settings",
+        method: "PUT",
+        data: { autoApprove: false },
+      }).status,
+    ).toBe(401);
+    expect(state.autoApprove).toBe(true);
+    expect(
+      handleLocalRequest(state, {
+        path: "/settings",
+        method: "PUT",
+        pin: "2026",
+        data: { autoApprove: "false" },
+      }).status,
+    ).toBe(400);
+    expect(
+      handleLocalRequest(state, {
+        path: "/settings",
+        method: "PUT",
+        pin: "2026",
+        data: { autoApprove: false },
+      }),
+    ).toEqual({ status: 200, body: { autoApprove: false } });
+    expect(
+      handleLocalRequest(state, {
+        path: "/settings",
+        method: "GET",
+      }).body,
+    ).toEqual({ autoApprove: false });
+  });
+
   it("accepts and edits wishes larger than the former 16 KB request cap", async () => {
     const message =
       "May this festival bring light and lasting joy to every colleague. ".repeat(

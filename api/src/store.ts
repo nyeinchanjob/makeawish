@@ -49,29 +49,49 @@ export function errorCode(error: unknown): number | undefined {
 export async function readSettings(
   container: Container,
 ): Promise<{ autoApprove: boolean }> {
+  let resource: unknown;
   try {
-    const { resource } = await container
-      .item("app-settings", "SYSTEM")
-      .read<{ autoApprove: boolean }>();
-    if (!resource || typeof resource.autoApprove !== "boolean") {
-      throw new Error("The app-settings document is invalid.");
-    }
-    return { autoApprove: resource.autoApprove };
+    ({ resource } = await container.item("app-settings", "SYSTEM").read());
   } catch (error) {
     if (errorCode(error) !== 404) throw error;
-    try {
-      await container.items.create({
-        id: "app-settings",
-        plant: "SYSTEM",
-        autoApprove: true,
-      });
-      return { autoApprove: true };
-    } catch (createError) {
-      // Another invocation may have created or updated the singleton first.
-      if (errorCode(createError) === 409) return readSettings(container);
-      throw createError;
-    }
   }
+  if (
+    resource &&
+    typeof resource === "object" &&
+    "id" in resource &&
+    resource.id === "app-settings" &&
+    "plant" in resource &&
+    resource.plant === "SYSTEM" &&
+    "autoApprove" in resource &&
+    typeof resource.autoApprove === "boolean"
+  ) {
+    if (
+      !("updatedAt" in resource) ||
+      typeof resource.updatedAt !== "string" ||
+      Number.isNaN(Date.parse(resource.updatedAt))
+    ) {
+      // Upgrade legacy metadata without switching a valid disabled toggle back on.
+      return writeSettings(container, resource.autoApprove);
+    }
+    return { autoApprove: resource.autoApprove };
+  }
+  console.warn(
+    "Missing or invalid app-settings document; persisting default Auto-Approve settings.",
+  );
+  return writeSettings(container, true);
+}
+
+export async function writeSettings(
+  container: Container,
+  autoApprove: boolean,
+): Promise<{ autoApprove: boolean }> {
+  await container.items.upsert({
+    id: "app-settings",
+    plant: "SYSTEM",
+    autoApprove,
+    updatedAt: new Date().toISOString(),
+  });
+  return { autoApprove };
 }
 
 export function fullWish(wish: Wish): Wish {

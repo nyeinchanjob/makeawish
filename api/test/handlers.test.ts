@@ -36,6 +36,12 @@ const record = {
   status: "approved",
   created_on: "2026-11-10T00:00:00Z",
 };
+const settingsRecord = {
+  id: "app-settings",
+  plant: "SYSTEM",
+  autoApprove: true,
+  updatedAt: "2026-11-10T00:00:00.000Z",
+};
 function request(method: string, path: string, value?: unknown, pin?: string) {
   return new HttpRequest({
     method,
@@ -65,7 +71,7 @@ describe("Cosmos-backed Functions", () => {
       patch: mocks.patch,
       delete: mocks.delete,
     });
-    mocks.read.mockResolvedValue({ resource: { autoApprove: true } });
+    mocks.read.mockResolvedValue({ resource: settingsRecord });
   });
 
   it("uses projected public queries and returns aggregate counts above the 120-wish limit", async () => {
@@ -106,6 +112,7 @@ describe("Cosmos-backed Functions", () => {
     ["DELETE", "wishes/wish-1", wishById],
     ["DELETE", "wishes/all", clearWishes],
     ["PATCH", "settings", settings],
+    ["PUT", "settings", settings],
   ] as const)(
     "protects %s %s before touching data",
     async (method, path, handler) => {
@@ -114,6 +121,7 @@ describe("Cosmos-backed Functions", () => {
         request(method, path, { plant: "HB" }, "wrong"),
       );
       expect(result.status).toBe(401);
+      expect(mocks.getContainer).not.toHaveBeenCalled();
       expect(mocks.query).not.toHaveBeenCalled();
       expect(mocks.item).not.toHaveBeenCalled();
       expect(mocks.upsert).not.toHaveBeenCalled();
@@ -143,7 +151,9 @@ describe("Cosmos-backed Functions", () => {
   it.each([true, false])(
     "creates a UUID wish according to autoApprove=%s",
     async (autoApprove) => {
-      mocks.read.mockResolvedValue({ resource: { autoApprove } });
+      mocks.read.mockResolvedValue({
+        resource: { ...settingsRecord, autoApprove },
+      });
       const result = await invoke(wishes, request("POST", "wishes", record));
       expect(result.status).toBe(201);
       expect(result.jsonBody).toMatchObject({
@@ -155,15 +165,112 @@ describe("Cosmos-backed Functions", () => {
     },
   );
 
-  it("creates and persists the default settings only when the singleton is missing", async () => {
+  it("upserts complete default settings when the singleton is missing", async () => {
     mocks.read.mockRejectedValueOnce({ code: 404 });
     const result = await invoke(settings, request("GET", "settings"));
     expect(result.jsonBody).toEqual({ autoApprove: true });
-    expect(mocks.create).toHaveBeenCalledWith({
+    expect(mocks.item).toHaveBeenCalledWith("app-settings", "SYSTEM");
+    expect(mocks.upsert).toHaveBeenCalledWith({
       id: "app-settings",
       plant: "SYSTEM",
       autoApprove: true,
+      updatedAt: expect.any(String),
     });
+    expect(
+      Number.isNaN(Date.parse(mocks.upsert.mock.calls[0]![0].updatedAt)),
+    ).toBe(false);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    undefined,
+    null,
+    {},
+    { ...settingsRecord, autoApprove: "true" },
+    { ...settingsRecord, autoApprove: null },
+    { ...settingsRecord, plant: "HTY" },
+    { ...settingsRecord, id: "incorrect" },
+  ])(
+    "repairs malformed settings %j before saving an approved wish",
+    async (resource) => {
+      mocks.read.mockResolvedValue({ resource });
+      const result = await invoke(wishes, request("POST", "wishes", record));
+      expect(result.status).toBe(201);
+      expect(result.jsonBody.status).toBe("approved");
+      expect(mocks.upsert).toHaveBeenCalledWith({
+        id: "app-settings",
+        plant: "SYSTEM",
+        autoApprove: true,
+        updatedAt: expect.any(String),
+      });
+      expect(mocks.create).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "approved" }),
+      );
+    },
+  );
+
+  it("upgrades legacy timestamp metadata without enabling a valid disabled toggle", async () => {
+    mocks.read.mockResolvedValue({
+      resource: { id: "app-settings", plant: "SYSTEM", autoApprove: false },
+    });
+    const result = await invoke(wishes, request("POST", "wishes", record));
+    expect(result.status).toBe(201);
+    expect(result.jsonBody.status).toBe("pending");
+    expect(mocks.upsert).toHaveBeenCalledWith({
+      id: "app-settings",
+      plant: "SYSTEM",
+      autoApprove: false,
+      updatedAt: expect.any(String),
+    });
+  });
+
+  it("persists repaired defaults and subsequent PATCH/PUT toggle changes for GET and submissions", async () => {
+    mocks.read.mockResolvedValue({ resource: {} });
+    mocks.upsert.mockImplementation(async (document) => {
+      mocks.read.mockResolvedValue({ resource: document });
+    });
+    expect(
+      (await invoke(settings, request("GET", "settings"))).jsonBody,
+    ).toEqual({ autoApprove: true });
+    expect(
+      (await invoke(wishes, request("POST", "wishes", record))).jsonBody.status,
+    ).toBe("approved");
+    expect(mocks.upsert).toHaveBeenCalledOnce();
+    expect(
+      (
+        await invoke(
+          settings,
+          request("PATCH", "settings", { autoApprove: false }, "2026"),
+        )
+      ).jsonBody,
+    ).toEqual({ autoApprove: false });
+    expect(
+      (await invoke(settings, request("GET", "settings"))).jsonBody,
+    ).toEqual({ autoApprove: false });
+    expect(
+      (await invoke(wishes, request("POST", "wishes", record))).jsonBody.status,
+    ).toBe("pending");
+    expect(
+      (
+        await invoke(
+          settings,
+          request("PUT", "settings", { autoApprove: true }, "2026"),
+        )
+      ).jsonBody,
+    ).toEqual({ autoApprove: true });
+    expect(
+      (await invoke(settings, request("GET", "settings"))).jsonBody,
+    ).toEqual({ autoApprove: true });
+    expect(mocks.upsert).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not save a wish or report successful settings repair when the upsert fails", async () => {
+    mocks.read.mockResolvedValue({ resource: {} });
+    mocks.upsert.mockRejectedValue(new Error("Settings write failed"));
+    const result = await invoke(wishes, request("POST", "wishes", record));
+    expect(result.status).toBe(500);
+    expect(result.jsonBody.details).toBe("Settings write failed");
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 
   it("saves long wishes and permits long admin edits without truncation", async () => {
@@ -344,27 +451,31 @@ describe("Cosmos-backed Functions", () => {
     ).toBe(429);
   });
 
-  it("validates and persists a boolean autoApprove flag", async () => {
-    expect(
-      (
-        await invoke(
-          settings,
-          request("PATCH", "settings", { autoApprove: "false" }, "2026"),
-        )
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await invoke(
-          settings,
-          request("PATCH", "settings", { autoApprove: false }, "2026"),
-        )
-      ).jsonBody,
-    ).toEqual({ autoApprove: false });
-    expect(mocks.upsert).toHaveBeenCalledWith({
-      id: "app-settings",
-      plant: "SYSTEM",
-      autoApprove: false,
-    });
-  });
+  it.each(["PATCH", "PUT"])(
+    "validates and persists a boolean autoApprove flag using %s",
+    async (method) => {
+      expect(
+        (
+          await invoke(
+            settings,
+            request(method, "settings", { autoApprove: "false" }, "2026"),
+          )
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await invoke(
+            settings,
+            request(method, "settings", { autoApprove: false }, "2026"),
+          )
+        ).jsonBody,
+      ).toEqual({ autoApprove: false });
+      expect(mocks.upsert).toHaveBeenCalledWith({
+        id: "app-settings",
+        plant: "SYSTEM",
+        autoApprove: false,
+        updatedAt: expect.any(String),
+      });
+    },
+  );
 });

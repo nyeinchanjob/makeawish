@@ -13,7 +13,13 @@ import {
   type Wish,
   type PlantCounts,
 } from "../../shared/wishes";
-import { errorCode, fullWish, getContainer, readSettings } from "./store";
+import {
+  errorCode,
+  fullWish,
+  getContainer,
+  readSettings,
+  writeSettings,
+} from "./store";
 
 class HttpError extends Error {
   constructor(
@@ -236,17 +242,12 @@ export async function clearWishes(
 export async function settings(
   request: HttpRequest,
 ): Promise<HttpResponseInit> {
-  if (request.method === "PATCH") requireAdmin(request);
+  if (request.method !== "GET") requireAdmin(request);
   if (request.method === "GET")
     return response(await readSettings(await getContainer()));
   const input = await body(request);
   if (typeof input.autoApprove !== "boolean")
     throw new HttpError(400, "autoApprove must be a boolean.");
   const container = await getContainer();
-  await container.items.upsert({
-    id: "app-settings",
-    plant: "SYSTEM",
-    autoApprove: input.autoApprove,
-  });
-  return response({ autoApprove: input.autoApprove });
+  return response(await writeSettings(container, input.autoApprove));
 }

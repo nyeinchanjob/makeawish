@@ -27,7 +27,7 @@ app.http("wishById", {
 });
 app.http("settings", {
   route: "settings",
-  methods: ["GET", "PATCH"],
+  methods: ["GET", "PATCH", "PUT"],
   authLevel: "anonymous",
   handler: withErrors(settings),
 });

@@ -121,9 +121,13 @@ this repository's mocked tests do not establish live account connectivity.
 
 Wishes use UUID v4 `id`, `employee_name`, normalized company `email`, `plant`, `message`,
 `status`, and ISO `created_on`. The singleton `{ id: "app-settings", plant: "SYSTEM",
-autoApprove: true }` is created lazily on the first settings read. Changing Auto-Approve
-affects future submissions only. A missing settings document defaults to true; a database
-failure does not silently approve or pretend a submission was saved.
+autoApprove: true, updatedAt: "<ISO timestamp>" }` is upserted on the first settings read
+if missing or malformed. Repairs persist the default `autoApprove: true` before any wish
+is saved. Legacy settings with a valid boolean flag receive timestamp metadata without
+changing that flag. GET settings and submissions share this repair logic; PATCH/PUT
+always upsert a complete document in the `SYSTEM` partition with a fresh timestamp.
+Changing Auto-Approve affects future submissions only. Real database read/write failures
+still surface; they do not silently approve or pretend a submission was saved.
 
 ### API
 
@@ -136,7 +140,7 @@ failure does not silently approve or pretend a submission was saved.
 | `DELETE /api/wishes/:id`          | `x-admin-pin`; JSON `{ plant }`                                         |
 | `DELETE /api/wishes/all`          | `x-admin-pin`; deletes wishes, preserves settings                       |
 | `GET /api/settings`               | Public `{ autoApprove }`                                                |
-| `PATCH /api/settings`             | `x-admin-pin`; `{ autoApprove: boolean }`                               |
+| `PATCH / PUT /api/settings`       | `x-admin-pin`; `{ autoApprove: boolean }`                               |
 
 The admin PIN is kept in page memory, not localStorage. This shared PIN is a lightweight
 event gate, not individual corporate authentication. Use HTTPS and a strong non-default PIN;
