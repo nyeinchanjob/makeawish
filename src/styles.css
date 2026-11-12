@@ -1,0 +1,522 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-ember: var(--ember);
+  --color-success: var(--success);
+  --font-display: "Great Vibes", cursive;
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 1rem;
+  --background: oklch(0.16 0.045 255);
+  --foreground: oklch(0.98 0.01 90);
+  --card: oklch(0.24 0.05 255 / 0.82);
+  --card-foreground: oklch(0.98 0.01 90);
+  --popover: oklch(0.2 0.05 255);
+  --popover-foreground: oklch(0.98 0.01 90);
+  --primary: oklch(0.55 0.22 27);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.3 0.06 255);
+  --secondary-foreground: oklch(0.98 0.01 90);
+  --muted: oklch(0.27 0.045 255);
+  --muted-foreground: oklch(0.85 0.03 80);
+  --accent: oklch(0.95 0.02 90);
+  --accent-foreground: oklch(0.2 0.05 255);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.95 0.03 90 / 0.2);
+  --input: oklch(0.95 0.03 90 / 0.3);
+  --ring: oklch(0.95 0.02 90);
+  --gold: oklch(0.97 0.02 92);
+  --ember: oklch(0.75 0.18 45);
+  --success: oklch(0.75 0.16 150);
+  --festival-background-image: url("/assets/background.png");
+  --myanmar-font-file: url("/assets/fonts/myanmar.woff2");
+  --sky: radial-gradient(ellipse at 50% 110%, oklch(0.55 0.15 28 / 0.3), transparent 55%),
+    radial-gradient(ellipse at 20% 0%, oklch(0.4 0.1 250 / 0.4), transparent 60%),
+    linear-gradient(180deg, oklch(0.1 0.04 255), oklch(0.15 0.055 252) 58%, oklch(0.23 0.1 25));
+  --glow-red: 0 0 30px oklch(0.6 0.24 27 / 0.7), 0 10px 40px -10px oklch(0.6 0.24 27 / 0.9);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: var(--color-border);
+  }
+  html,
+  body {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+  }
+  @font-face {
+    font-family: "Share Myanmar";
+    src: var(--myanmar-font-file) format("woff2");
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "TCCC Unity Text";
+    src: url("/assets/fonts/TCCC-UnityText-Regular.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "TCCC Unity Text";
+    src: url("/assets/fonts/TCCC-UnityText-Bold.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: "Myanmar Text", "Noto Sans Myanmar", "Padauk", "Share Myanmar", var(--font-sans);
+  }
+}
+
+@utility bg-sky {
+  background-image: linear-gradient(180deg, oklch(0.1 0.04 255 / 0.35), oklch(0.2 0.08 22 / 0.25)), var(--festival-background-image), var(--sky);
+  background-position: center, center, center;
+  background-size: cover, cover, cover;
+  background-attachment: fixed;
+}
+@utility text-glow { text-shadow: 0 0 18px oklch(0.7 0.22 27 / 0.8), 0 0 44px oklch(0.6 0.24 27 / 0.6); }
+@utility shadow-glow { box-shadow: var(--glow-red); }
+@utility wish-card {
+  border-radius: 1.25rem;
+  background: linear-gradient(160deg, oklch(0.24 0.06 255 / 0.94), oklch(0.22 0.08 25 / 0.94));
+  border: 1px solid oklch(0.95 0.03 90 / 0.35);
+  box-shadow: 0 0 40px oklch(0.6 0.22 27 / 0.28);
+  backdrop-filter: blur(12px);
+}
+@utility glass {
+  background: oklch(0.28 0.09 22 / 0.6);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+}
+
+/* SVG lantern silhouette and candle glow */
+.lantern-wrap {
+  display: inline-block;
+  vertical-align: middle;
+}
+.lantern {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 0 8px oklch(0.78 0.18 55 / 0.72))
+    drop-shadow(0 0 18px oklch(0.68 0.2 36 / 0.45));
+}
+.lantern-flame {
+  transform-origin: 50% 100%;
+  animation: flameFlicker 2.4s ease-in-out infinite alternate;
+}
+@keyframes flameFlicker {
+  from { opacity: .8; transform: scale(.92, .96) }
+  to { opacity: 1; transform: scale(1.05, 1.02) }
+}
+
+.star {
+  position: absolute; border-radius: 9999px;
+  background: oklch(0.98 0.03 90);
+  animation: twinkle 3.5s ease-in-out infinite;
+}
+@keyframes twinkle { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+
+.float-up { animation: floatUp linear infinite; }
+.float-new { animation: floatNew 9s cubic-bezier(.3,.1,.4,1) forwards; z-index: 10; }
+@keyframes floatUp {
+  0% { transform: translateY(10%); opacity: 0 }
+  8% { opacity: 1 }
+  85% { opacity: .9 }
+  100% { transform: translateY(calc(-100vh - 120%)); opacity: 0 }
+}
+@keyframes floatNew {
+  0% { transform: translateY(0) scale(.4); opacity: 0 }
+  10% { opacity: 1; transform: translateY(-5vh) scale(1) }
+  100% { transform: translateY(-75vh) scale(.8); opacity: .95 }
+}
+.sway { animation: sway ease-in-out infinite alternate; transform-origin: 50% 0; }
+@keyframes sway { from { transform: translateX(-6px) rotate(-4deg) } to { transform: translateX(6px) rotate(4deg) } }
+
+.release { animation: release 2.4s cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes release {
+  0% { transform: translateY(0) scale(1); opacity: 1 }
+  20% { transform: translateY(10px) scale(1.15) }
+  100% { transform: translateY(-80vh) scale(.5); opacity: 0 }
+}
+.wish-launch-lantern {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: wishLaunch 2.4s cubic-bezier(.3,.1,.4,1) forwards;
+}
+@keyframes wishLaunch {
+  0% { opacity: 0; transform: translate(-50%, -35%) scale(.55) }
+  12% { opacity: 1 }
+  100% { opacity: 0; transform: translate(-50%, -75vh) scale(.8) }
+}
+.firework { position: absolute; width: 6px; height: 6px; border-radius: 9999px; background: var(--gold); animation: burst 1.6s ease-out forwards; }
+@keyframes burst { from { transform: translate(0,0); opacity: 1 } to { transform: translate(var(--dx), var(--dy)); opacity: 0 } }
+.fade-cycle { animation: fadeCycle 7s ease-in-out forwards; }
+@keyframes fadeCycle { 0% { opacity: 0; transform: translateY(20px) } 12%,85% { opacity: 1; transform: none } 100% { opacity: 0; transform: translateY(-20px) } }
+.floating-wish { animation: floatWishIn 1.2s ease-out both, wishDrift 8s ease-in-out 1.2s infinite alternate; }
+@keyframes floatWishIn { from { opacity: 0; translate: 0 12px } to { opacity: 1; translate: 0 0 } }
+@keyframes wishDrift { from { transform: translateY(-2px) } to { transform: translateY(3px) } }
+
+.display-main {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(0.5rem, 1.5vh, 1.25rem);
+  overflow: hidden;
+  padding: clamp(1rem, 2.5vh, 2rem) clamp(1rem, 4vw, 4rem);
+  isolation: isolate;
+}
+.display-main.has-tccc-unity-font {
+  font-family: "TCCC Unity Text", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-sans);
+}
+.display-main.has-tccc-unity-font .floating-wish,
+.display-main.has-tccc-unity-font .display-title,
+.display-main.has-tccc-unity-font .display-subtitle,
+.display-main.has-tccc-unity-font .display-tagline,
+.display-main.has-tccc-unity-font .display-count-label,
+.display-main.has-tccc-unity-font .display-qr-instruction {
+  font-family: "TCCC Unity Text", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-sans);
+}
+.display-decor {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.25;
+  pointer-events: none;
+}
+.display-decor > * {
+  pointer-events: none;
+}
+.display-decor .lantern {
+  filter: drop-shadow(0 0 3px oklch(0.78 0.18 55 / 0.45))
+    drop-shadow(0 0 9px oklch(0.68 0.2 36 / 0.24));
+}
+.display-decor .sway {
+  animation-duration: 12s !important;
+}
+.display-header,
+.display-stage,
+.display-footer {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.display-header {
+  padding-inline: clamp(2rem, 5vw, 5rem);
+  text-align: center;
+}
+.display-title {
+  font-size: clamp(2rem, 5.5vw, 3rem);
+  line-height: 1;
+  font-family:'Courier New', Courier, monospace;
+  font-weight:bold;
+  overflow-wrap: anywhere;
+}
+.display-subtitle {
+  margin-top: clamp(0.35rem, 1vh, 0.8rem);
+  font-size: clamp(0.9rem, 1.6vw, 1.6rem);
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  overflow-wrap: anywhere;
+}
+.display-tagline {
+  margin-top: clamp(0.25rem, 0.7vh, 0.6rem);
+  font-size: clamp(0.75rem, 1.2vw, 1.2rem);
+  line-height: 1.25;
+  letter-spacing: 0.2em;
+}
+.display-settings {
+  position: absolute;
+  z-index: 2;
+  top: clamp(0.75rem, 2vh, 1.5rem);
+  right: clamp(0.75rem, 2vw, 2rem);
+}
+.display-stage {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  padding: clamp(0.25rem, 1vh, 1rem) 0;
+}
+.wish-field {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--wish-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--wish-rows, 2), minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+  gap: clamp(0.35rem, 1.5vw, 1.5rem);
+  padding: clamp(0.35rem, 1vw, 1rem);
+  pointer-events: none;
+}
+.floating-wish {
+  width: 100%;
+  max-width: min(100%, 36rem);
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+  font-family: "Share Myanmar", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-serif);
+  font-size: clamp(1rem, 1.35vw, 1.5rem);
+  line-height: 1.5;
+  color: oklch(0.99 0.07 100);
+  font-weight: bold;
+  text-shadow:
+    0 2px 8px oklch(0.05 0.03 255 / 0.98),
+    0 0 14px oklch(0.9 0.1 65 / 0.58),
+    0 0 30px oklch(0.72 0.16 55 / 0.35);
+  -webkit-text-stroke: 0.3px oklch(0.08 0.03 255 / 0.88);
+  text-wrap: pretty;
+}
+.floating-wish-entering {
+  animation: wishFadeIn 1.4s ease both;
+}
+.floating-wish-exiting {
+  opacity: 0;
+  filter: blur(3px);
+  transform: translateY(-4px);
+  transition: opacity 700ms ease, filter 700ms ease, transform 700ms ease;
+}
+@keyframes wishFadeIn {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+.floating-wish-author {
+  display: block;
+  margin-top: 0.35em;
+  font-size: 0.68em;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+.floating-wish-medium {
+  max-width: min(100%, 38rem);
+  font-size: clamp(1.05rem, 1.55vw, 1.75rem);
+}
+.floating-wish-large {
+  max-width: min(100%, 40rem);
+  font-size: clamp(1.15rem, 1.9vw, 2.1rem);
+  line-height: 1.25;
+  text-shadow:
+    0 2px 8px oklch(0.05 0.03 255 / 0.98),
+    0 0 18px oklch(0.93 0.12 70 / 0.68),
+    0 0 36px oklch(0.72 0.16 55 / 0.42);
+}
+.floating-wish-long {
+  max-width: min(94%, 72rem);
+  padding-inline: clamp(0.4rem, 1.5vw, 1.5rem);
+  font-size: clamp(0.95rem, 1.35vw, 1.5rem);
+  line-height: 1.4;
+}
+.display-empty {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.1rem, 2vw, 2rem);
+  text-shadow: 0 0 18px oklch(0.8 0.16 62 / 0.55);
+}
+.display-footer {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: clamp(1rem, 3vw, 3rem);
+  padding-bottom: clamp(0.25rem, 1vh, 1rem);
+}
+.display-counter,
+.display-qr-section {
+  min-width: 0;
+  max-width: 48%;
+}
+.display-counter {
+  position: relative;
+}
+.display-counter-lantern {
+  margin-left: 0.6rem;
+  vertical-align: baseline;
+}
+.display-count {
+  margin: 0;
+  font-size: clamp(2.5rem, min(7vw, 8vh), 7rem);
+  line-height: 0.95;
+}
+.display-count-label {
+  margin: clamp(0.25rem, 0.7vh, 0.6rem) 0 0;
+  font-size: clamp(0.7rem, 1.4vw, 1.4rem);
+  line-height: 1.25;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.display-qr-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+.display-qr-image,
+.display-qr-placeholder {
+  width: clamp(7rem, 16vh, 12rem);
+  height: clamp(7rem, 16vh, 12rem);
+  border: 2px solid oklch(0.95 0.03 90 / 0.85);
+  border-radius: 0.75rem;
+  background: oklch(0.99 0.005 90);
+  box-shadow: 0 0 24px oklch(0.78 0.18 55 / 0.35);
+}
+.display-qr-image {
+  display: block;
+  object-fit: contain;
+  padding: 0.3rem;
+}
+.display-qr-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  color: oklch(0.28 0.04 255)
+  font-size: clamp(0.6rem, 1vw, 0.85rem);
+  font-weight: 700;
+}
+.display-qr-placeholder span {
+  font-size: 0.64em;
+  font-weight: 400;
+}
+.display-qr-instruction {
+  margin: 0;
+  color: var(--gold);
+  font-size: clamp(0.65rem, 1vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 5px oklch(0.08 0.03 255 / 0.9);
+}
+.visitor-success {
+  display: flex;
+  min-height: min(58vh, 34rem);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-block: clamp(2rem, 7vh, 5rem);
+}
+.visitor-success-link {
+  margin-top: clamp(2rem, 10vh, 6rem);
+  justify-content: center;
+  padding-inline: 2rem;
+  transition: filter 180ms ease, transform 180ms ease;
+}
+.visitor-success-link:hover {
+  filter: brightness(1.12);
+  transform: translateY(-2px);
+}
+
+@media (max-height: 780px) {
+  .display-main {
+    gap: clamp(0.35rem, 1vh, 0.75rem);
+    padding-block: clamp(0.75rem, 1.5vh, 1.25rem);
+  }
+}
+
+@media (max-width: 700px) {
+  .display-header {
+    padding-inline: 1.5rem;
+  }
+  .display-footer {
+    align-items: start;
+    gap: 0.75rem;
+  }
+  .display-counter,
+  .display-qr-section {
+    max-width: 50%;
+  }
+  .display-qr-image,
+  .display-qr-placeholder {
+    width: clamp(6rem, 18vw, 8rem);
+    height: clamp(6rem, 18vw, 8rem);
+  }
+  .display-count-label {
+    letter-spacing: 0.08em;
+  }
+  .wish-field {
+    gap: 0.5rem;
+    padding: 0.25rem;
+  }
+  .floating-wish {
+    font-size: clamp(0.9rem, 3vw, 1.15rem);
+  }
+  .floating-wish-medium {
+    font-size: clamp(0.98rem, 3.2vw, 1.22rem);
+  }
+  .floating-wish-large {
+    font-size: clamp(1.05rem, 3.5vw, 1.35rem);
+  }
+  .floating-wish-long {
+    font-size: clamp(0.88rem, 2.9vw, 1.1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wish-launch-lantern {
+    animation-duration: 0.01ms;
+  }
+  .floating-wish {
+    animation: none;
+  }
+  .floating-wish-entering {
+    animation: wishFadeIn 0.01ms ease both;
+  }
+  .floating-wish-exiting {
+    transition-duration: 0.01ms;
+  }
+}
