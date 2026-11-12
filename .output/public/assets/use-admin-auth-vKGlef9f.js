@@ -1,0 +1,1 @@
+import{E as e,w as t}from"./useSelector-6J2666Dq.js";import{t as n}from"./index-BAYTrjGe.js";var r=e(t(),1);function i(){let e=(0,r.useContext)(n);if(!e)throw Error(`useAdminAuth must be used within AdminAuthProvider.`);return e}export{i as t};

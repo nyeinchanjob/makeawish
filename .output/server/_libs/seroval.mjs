@@ -1,6 +1,6 @@
 import { $ as SerovalPluginValidationError, B as SYMBOL_REF, D as ERROR_CONSTRUCTOR, E as CONSTANT_VAL, G as SYM_TO_STRING_TAG, H as SYM_ASYNC_ITERATOR, J as SerovalDeserializationError, K as SerovalConflictedNodeIdError, U as SYM_IS_CONCAT_SPREADABLE, W as SYM_ITERATOR, X as SerovalMissingInstanceError, Y as SerovalMalformedNodeError, Z as SerovalMissingPluginError, _t as resolvePlugins, at as TEMPORAL_TYPE_NAME, bt as streamToAsyncIterable, ft as getReference, gt as isStream, ht as isSequence, it as Stream, j as PROMISE_CONSTRUCTOR, nt as SerovalUnsupportedNodeError, q as SerovalDepthLimitError, st as createSequence, ut as deserializeString, vt as sequenceToIterator } from "./@tanstack/react-router+[...].mjs";
 import { l as decodeArrayBuffer, u as getTypedArrayConstructor } from "./@tanstack/router-core+[...].mjs";
-//#region node_modules/seroval/dist/read-CSKXLr9t.js
+//#region node_modules/seroval/dist/read-BSFu4fPn.js
 function isValidKey(key) {
 	switch (key) {
 		case "constructor":
@@ -346,7 +346,7 @@ function deserialize$1(ctx, depth, node) {
 		case 14: return deserializeAggregateError(ctx, depth, node);
 		case 13: return deserializeError(ctx, depth, node);
 		case 12: return deserializePromise(ctx, depth, node);
-		case 17: return deserializeKnownValue(node, SYMBOL_REF, node.s);
+		case 17: return assignIndexedValue(ctx, node.i, deserializeKnownValue(node, SYMBOL_REF, node.s));
 		case 21: return deserializeBoxed(ctx, depth, node);
 		case 25: return deserializePlugin(ctx, depth, node);
 		case 22: return deserializePromiseConstructor(ctx, node);
