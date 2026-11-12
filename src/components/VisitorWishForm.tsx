@@ -5,8 +5,8 @@ import { CheckCircle2, Sparkles } from "lucide-react";
 import { LanternShape } from "@/components/Sky";
 import {
   MAX_NICK,
-  MAX_EMPLOYEE_ID,
-  MAX_WISH,
+  EMAIL_DOMAIN,
+  normalizeEmail,
   OFFICE_LOCATIONS,
   validateWish,
   type LanternLocation,
@@ -20,13 +20,16 @@ interface VisitorWishFormProps {
 
 export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
   const [name, setName] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
+  const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [location, setLocation] = useState<LanternLocation | "">("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [launchOrigin, setLaunchOrigin] = useState<{ left: number; top: number } | null>(null);
+  const [launchOrigin, setLaunchOrigin] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -43,12 +46,19 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
       setError("Please enter your name.");
       return;
     }
-    if (!employeeId.trim()) {
-      setError("Please enter your employee ID.");
+    let normalizedEmail: string;
+    try {
+      normalizedEmail = normalizeEmail(email);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Please enter your company email.",
+      );
       return;
     }
     if (!location) {
-      setError("Please select your office location.");
+      setError("Please select your plant.");
       return;
     }
     const wishError = validateWish(message);
@@ -64,7 +74,12 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
       .querySelector<HTMLButtonElement>('button[type="submit"]')
       ?.getBoundingClientRect();
     try {
-      await onSubmit({ name, employeeId, message, officeLocation: location });
+      await onSubmit({
+        employee_name: name.trim(),
+        email: normalizedEmail,
+        message: message.trim(),
+        plant: location,
+      });
       if (buttonBounds) {
         setLaunchOrigin({
           left: buttonBounds.left + buttonBounds.width / 2,
@@ -74,7 +89,11 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
       setSubmitted(true);
       onSuccess();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Your wish could not be saved.");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Your wish could not be saved.",
+      );
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -101,13 +120,14 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
       <div className="visitor-success wish-card p-6 text-center animate-in fade-in zoom-in-95">
         <CheckCircle2 className="mx-auto h-10 w-10 text-gold" />
         <p className="mt-3 font-serif text-xl font-bold text-foreground">
-          Your wish has joined the festival collection!
+          Your light is on its way!
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          It will appear on the festival sky after admin approval.
+          Thank you for sharing your wish. Together, we make the festival
+          brighter.
         </p>
         <Link
-          to="/display"
+          to="/"
           className="visitor-success-link inline-flex rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-glow"
         >
           VIEW THE FESTIVAL SKY
@@ -119,9 +139,14 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
 
   return (
     <form onSubmit={submit} className="wish-card space-y-4 p-5" noValidate>
+      <p className="text-sm text-muted-foreground">
+        Share a little hope with your colleagues. Your name, plant and approved
+        wish will appear on the festival sky. Your email is visible only to
+        moderators.
+      </p>
       <div>
         <label htmlFor="nick" className="text-sm font-medium text-foreground">
-          Name
+          Employee Name
         </label>
         <input
           id="nick"
@@ -134,65 +159,73 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
         />
       </div>
       <div>
-        <label htmlFor="employeeId" className="text-sm font-medium text-foreground">
-          Employee ID
+        <label htmlFor="email" className="text-sm font-medium text-foreground">
+          Email
         </label>
-        <input
-          id="employeeId"
-          value={employeeId}
-          maxLength={MAX_EMPLOYEE_ID}
-          required
-          onChange={(event) => {
-            setEmployeeId(event.target.value);
-            if (error) setError(null);
-          }}
-          placeholder="Enter your employee ID"
-          className="mt-1.5 w-full rounded-xl border border-input bg-background/60 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
-        />
+        <div className="mt-1.5 flex items-center rounded-xl border border-input bg-background/60 focus-within:ring-2 focus-within:ring-ring">
+          <input
+            id="email"
+            value={email}
+            type="text"
+            inputMode="email"
+            autoComplete="email"
+            maxLength={254}
+            required
+            onChange={(event) => {
+              const value = event.target.value;
+              setEmail(
+                value.toLowerCase().trim().endsWith(EMAIL_DOMAIN)
+                  ? value.trim().slice(0, -EMAIL_DOMAIN.length)
+                  : value,
+              );
+              if (error) setError(null);
+            }}
+            placeholder="your.name"
+            aria-describedby="email-domain"
+            className="min-w-0 flex-1 bg-transparent px-3 py-3 text-foreground outline-none"
+          />
+          <span id="email-domain" className="shrink-0 pr-3 text-xs text-gold">
+            {EMAIL_DOMAIN}
+          </span>
+        </div>
       </div>
-      <div>
-        <label htmlFor="location" className="text-sm font-medium text-foreground">
-          Office Location
-        </label>
-        <select
-          id="location"
-          value={location}
-          required
-          onChange={(event) => {
-            const selected = event.target.value;
-            if (OFFICE_LOCATIONS.includes(selected as LanternLocation)) {
-              setLocation(selected as LanternLocation);
-            } else {
-              setLocation("");
-            }
-            if (error) setError(null);
-          }}
-          className="mt-1.5 w-full rounded-xl border border-input bg-background/60 px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="" disabled>
-            Select your office location
-          </option>
+      <fieldset>
+        <legend className="text-sm font-medium text-foreground">Plant</legend>
+        <div className="mt-2 grid grid-cols-4 gap-2">
           {OFFICE_LOCATIONS.map((office) => (
-            <option key={office} value={office}>
+            <button
+              type="button"
+              key={office}
+              aria-pressed={location === office}
+              onClick={() => {
+                setLocation(office);
+                setError(null);
+              }}
+              className={`rounded-xl border py-3 font-bold transition ${
+                location === office
+                  ? "border-gold bg-primary text-gold shadow-glow"
+                  : "border-gold/30 bg-background/60 text-muted-foreground hover:bg-gold/10"
+              }`}
+            >
               {office}
-            </option>
+            </button>
           ))}
-        </select>
-      </div>
+        </div>
+      </fieldset>
       <div>
         <div className="flex justify-between gap-3">
           <label htmlFor="wish" className="text-sm font-medium text-foreground">
-            Your festival wish
+            Your Wish Message
           </label>
           <span className="shrink-0 text-xs text-muted-foreground">
-            {message.length}/{MAX_WISH}
+            {message.length.toLocaleString()} characters
           </span>
         </div>
         <textarea
           id="wish"
           value={message}
           rows={4}
-          maxLength={MAX_WISH}
+          minLength={3}
           required
           onChange={(event) => {
             setMessage(event.target.value);

@@ -1,219 +1,249 @@
-import { useCallback, useEffect, useState } from "react";
-import { maxWishLength } from "./app-config";
+import { useEffect, useState } from "react";
+import { apiRequest, LOCAL_API_STORAGE_KEY } from "./api-client";
+export { apiRequest } from "./api-client";
+import {
+  PLANTS,
+  MAX_NAME,
+  parseWishInput,
+  isPlant,
+  type DisplayData,
+  type PlantCounts,
+  type Wish,
+  type WishInput,
+  type WishStatus,
+} from "../../shared/wishes";
 
-export type LanternStatus = "pending" | "approved" | "rejected";
-export const OFFICE_LOCATIONS = ["HTY", "HmweBe", "CDC", "Other Regions"] as const;
-export type LanternLocation = (typeof OFFICE_LOCATIONS)[number];
+export {
+  validateWish,
+  normalizeEmail,
+  EMAIL_DOMAIN,
+} from "../../shared/wishes";
+export const OFFICE_LOCATIONS = PLANTS;
+export const MAX_NICK = MAX_NAME;
+export type LanternLocation = (typeof PLANTS)[number];
+export type LanternStatus = WishStatus;
+export type CreateLanternInput = WishInput;
 
 export interface Lantern {
   id: string;
   name: string;
-  employeeId?: string;
+  email?: string;
   message: string;
   officeLocation: LanternLocation;
-  status: LanternStatus;
+  status: WishStatus;
   createdAt: string;
 }
 
-export type MessageRecord = Lantern;
+export const DISPLAY_CACHE_KEY = "share-light.display.v1";
+const CHANGE_EVENT = "share-light:update";
+const emptyCounts = (): PlantCounts => ({ HTY: 0, HB: 0, CDC: 0, JC: 0 });
 
-export interface CreateLanternInput {
-  name: string;
-  employeeId: string;
-  message: string;
-  officeLocation: LanternLocation;
-}
-
-export interface LanternRepository {
-  list(): Promise<Lantern[]>;
-  create(input: CreateLanternInput): Promise<Lantern>;
-  updateStatus(id: string, status: LanternStatus): Promise<Lantern>;
-  reset(): Promise<void>;
-  exportAll(): Promise<Lantern[]>;
-}
-
-export const MAX_WISH = maxWishLength;
-export const MAX_NICK = 24;
-export const MAX_EMPLOYEE_ID = 64;
-let legacyMigrationComplete = false;
-const CHANGE_EVENT = "lut:update";
-const LEGACY_STORAGE_KEY = "lut.lanterns.v1";
-const LEGACY_MIGRATION_KEY = "lut.lanterns.api-migrated";
-
-interface ApiError {
-  error?: string;
-}
-
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  if (init.body !== undefined) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, { ...init, headers, credentials: "same-origin" });
-
-  if (response.status === 204) return undefined as T;
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    if (!response.ok) throw new Error(`The request failed (${response.status}).`);
-    throw new Error("The lantern API returned an invalid response.");
+export function parseDisplayData(value: unknown): DisplayData {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("wishes" in value) ||
+    !Array.isArray(value.wishes) ||
+    !("counts" in value) ||
+    !value.counts ||
+    typeof value.counts !== "object"
+  ) {
+    throw new Error("Invalid display data.");
   }
-  if (!response.ok) {
-    const message =
-      typeof body === "object" &&
-      body !== null &&
-      "error" in body &&
-      typeof (body as ApiError).error === "string"
-        ? (body as ApiError).error!
-        : `The request failed (${response.status}).`;
-    throw new Error(message);
-  }
-  return body as T;
-}
-
-const apiRepository: LanternRepository = {
-  async list() {
-    await migrateLegacyBrowserRecords();
-    return request<Lantern[]>("/api/lanterns");
-  },
-  async create(input) {
-    return request<Lantern>("/api/lanterns", {
-      method: "POST",
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-      body: JSON.stringify(input),
-    });
-  },
-  async updateStatus(id, status) {
-    return request<Lantern>(`/api/lanterns/${encodeURIComponent(id)}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-  },
-  async reset() {
-    await request<void>("/api/lanterns/reset", { method: "POST", body: "{}" });
-  },
-  async exportAll() {
-    return request<Lantern[]>("/api/lanterns/export");
-  },
-};
-
-async function migrateLegacyBrowserRecords(): Promise<void> {
-  if (legacyMigrationComplete || typeof window === "undefined") return;
-  if (window.localStorage.getItem(LEGACY_MIGRATION_KEY) === "true") {
-    legacyMigrationComplete = true;
-    return;
-  }
-  const saved = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-  if (saved === null) {
-    legacyMigrationComplete = true;
-    return;
-  }
-
-  let records: unknown;
-  try {
-    records = JSON.parse(saved) as unknown;
-  } catch {
-    throw new Error(
-      "Previous browser-stored submissions contain invalid JSON and were not changed.",
-    );
-  }
-  if (!Array.isArray(records)) {
-    throw new Error("Previous browser-stored submissions are not a record list.");
-  }
-  await request<{ imported: number }>("/api/lanterns/migrate", {
-    method: "POST",
-    body: JSON.stringify({ records }),
+  const wishes = value.wishes.map((wish: unknown) => {
+    if (!wish || typeof wish !== "object")
+      throw new Error("Invalid display wish.");
+    const item = wish as Record<string, unknown>;
+    if (
+      typeof item["id"] !== "string" ||
+      typeof item["employee_name"] !== "string" ||
+      typeof item["message"] !== "string" ||
+      !isPlant(item["plant"]) ||
+      typeof item["created_on"] !== "string" ||
+      Number.isNaN(Date.parse(item["created_on"]))
+    ) {
+      throw new Error("Invalid display wish.");
+    }
+    // Whitelist the public projection: never persist an email in the display cache.
+    return {
+      id: item["id"],
+      employee_name: item["employee_name"],
+      message: item["message"],
+      plant: item["plant"],
+      created_on: item["created_on"],
+    };
   });
-  try {
-    window.localStorage.setItem(LEGACY_MIGRATION_KEY, "true");
-  } catch (error) {
-    console.error(
-      "Could not save the legacy-import marker; the server will deduplicate retries.",
-      error,
-    );
+  const counts = emptyCounts();
+  for (const plant of PLANTS) {
+    const count: unknown = Reflect.get(value.counts, plant);
+    if (
+      typeof count !== "number" ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      throw new Error("Invalid plant count.");
+    }
+    counts[plant] = count;
   }
-  legacyMigrationComplete = true;
+  return { wishes, counts };
 }
 
-function notifyChange(): void {
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(CHANGE_EVENT));
+function cachedDisplay(): DisplayData {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = window.localStorage.getItem(DISPLAY_CACHE_KEY);
+      if (raw) return parseDisplayData(JSON.parse(raw));
+    } catch (error) {
+      console.error(
+        "Display cache could not be read; fetching live wishes.",
+        error,
+      );
+    }
+  }
+  return { wishes: [], counts: emptyCounts() };
+}
+
+function toLantern(wish: DisplayData["wishes"][number] | Wish): Lantern {
+  return {
+    id: wish.id,
+    name: wish.employee_name,
+    message: wish.message,
+    officeLocation: wish.plant,
+    createdAt: wish.created_on,
+    status: "status" in wish ? wish.status : "approved",
+    ...("email" in wish ? { email: wish.email } : {}),
+  };
+}
+
+function notifyChange() {
+  window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
 export const lanternService = {
-  async getAll() {
-    return apiRepository.list();
+  async submit(input: WishInput) {
+    const created = await apiRequest<Wish>(
+      "/wishes",
+      "POST",
+      parseWishInput(input),
+    );
+    notifyChange();
+    return created;
   },
-  async submit(input: CreateLanternInput) {
-    const name = input.name.trim();
-    const employeeId = input.employeeId.trim();
-    if (!name) throw new Error("Please enter your name.");
-    if (name.length > MAX_NICK) throw new Error(`Name must be ${MAX_NICK} characters or fewer.`);
-    if (!employeeId) throw new Error("Please enter your employee ID.");
-    if (employeeId.length > MAX_EMPLOYEE_ID) {
-      throw new Error(`Employee ID must be ${MAX_EMPLOYEE_ID} characters or fewer.`);
+  async getAll(pin: string, signal?: AbortSignal) {
+    const data = await apiRequest<{ wishes: Wish[] }>(
+      "/wishes?status=all",
+      "GET",
+      undefined,
+      pin,
+      signal,
+    );
+    return data.wishes.map(toLantern);
+  },
+  async update(
+    wish: Lantern,
+    changes: { status?: "approved" | "rejected"; message?: string },
+    pin: string,
+  ) {
+    await apiRequest(
+      `/wishes/${encodeURIComponent(wish.id)}`,
+      "PATCH",
+      {
+        plant: wish.officeLocation,
+        ...changes,
+      },
+      pin,
+    );
+    notifyChange();
+  },
+  async delete(wish: Lantern, pin: string) {
+    await apiRequest(
+      `/wishes/${encodeURIComponent(wish.id)}`,
+      "DELETE",
+      { plant: wish.officeLocation },
+      pin,
+    );
+    notifyChange();
+  },
+  async clear(pin: string) {
+    await apiRequest("/wishes/all", "DELETE", undefined, pin);
+    try {
+      window.localStorage.removeItem(DISPLAY_CACHE_KEY);
+    } catch (error) {
+      console.error(
+        "Wishes were cleared, but the local display cache could not be removed.",
+        error,
+      );
     }
-    const error = validateWish(input.message);
-    if (error) throw new Error(error);
-    const record = await apiRepository.create({
-      ...input,
-      name,
-      employeeId,
-      message: input.message.trim(),
-    });
     notifyChange();
-    return record;
-  },
-  async setStatus(id: string, status: LanternStatus) {
-    const updated = await apiRepository.updateStatus(id, status);
-    notifyChange();
-    return updated;
-  },
-  async resetDemoData() {
-    await apiRepository.reset();
-    notifyChange();
-  },
-  async exportAll() {
-    return apiRepository.exportAll();
   },
 };
 
-export function validateWish(wish: string): string | null {
-  const trimmed = wish.trim();
-  if (!trimmed) return "Please write a wish for Taunggyi.";
-  if (trimmed.length > MAX_WISH) return `Keep it under ${MAX_WISH} characters.`;
-  return null;
-}
-
 export function useLanterns() {
-  const [records, setRecords] = useState<Lantern[]>([]);
+  const [data, setData] = useState(cachedDisplay);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    try {
-      const next = await lanternService.getAll();
-      setRecords((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next));
-      setError(null);
-    } catch (reason) {
-      const message =
-        reason instanceof Error ? reason.message : "Festival messages could not be loaded.";
-      setError(message);
-      console.error("Unable to load festival messages.", reason);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
-    const onChange = () => void refresh();
-    void refresh();
-    window.addEventListener(CHANGE_EVENT, onChange);
-    const timer = window.setInterval(onChange, 3000);
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, onChange);
-      window.clearInterval(timer);
+    let active = true;
+    let inFlight = false;
+    const controller = new AbortController();
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const next = parseDisplayData(
+          await apiRequest<unknown>(
+            "/wishes?status=approved",
+            "GET",
+            undefined,
+            undefined,
+            controller.signal,
+          ),
+        );
+        if (!active) return;
+        setData((current) =>
+          JSON.stringify(current) === JSON.stringify(next) ? current : next,
+        );
+        setError(null);
+        try {
+          window.localStorage.setItem(DISPLAY_CACHE_KEY, JSON.stringify(next));
+        } catch (cacheError) {
+          console.error(
+            "Live wishes loaded, but the display cache could not be saved.",
+            cacheError,
+          );
+        }
+      } catch (reason) {
+        if (active)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Wishes could not be refreshed.",
+          );
+      } finally {
+        inFlight = false;
+      }
     };
-  }, [refresh]);
+    void refresh();
+    const onChange = () => void refresh();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === DISPLAY_CACHE_KEY) {
+        setData(cachedDisplay());
+        void refresh();
+      } else if (event.key === LOCAL_API_STORAGE_KEY) {
+        void refresh();
+      }
+    };
+    const timer = window.setInterval(onChange, 5000);
+    window.addEventListener(CHANGE_EVENT, onChange);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener(CHANGE_EVENT, onChange);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
-  return { lanterns: records, error, loading };
+  return { lanterns: data.wishes.map(toLantern), counts: data.counts, error };
 }

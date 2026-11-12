@@ -1,189 +1,479 @@
-import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Check, X, RotateCcw, Flame, CheckCircle2, XCircle, Clock, Download, LogOut } from "lucide-react";
-import { lanternService, useLanterns, type LanternStatus } from "@/lib/lanterns";
-import { downloadApprovedLanterns } from "@/lib/lantern-export";
-import { appSubtitle, appTitle } from "@/lib/app-config";
-import { useAdminAuth } from "@/lib/use-admin-auth";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useRouterState,
+} from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import {
+  apiRequest,
+  lanternService,
+  OFFICE_LOCATIONS,
+  validateWish,
+  type Lantern,
+  type LanternStatus,
+  type LanternLocation,
+} from "@/lib/lanterns";
+import { downloadLanternCsv } from "@/lib/lantern-export";
+import { Switch } from "@/components/ui/switch";
+import { ApiModeNotice } from "@/components/ApiModeNotice";
+import { getApiMode } from "@/lib/api-client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: `${appTitle} — Admin` },
-      { name: "description", content: appSubtitle },
-      { property: "og:title", content: `${appTitle} — Admin` },
-      { property: "og:description", content: appSubtitle },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { title: "Share the Light — Admin" },
       { name: "robots", content: "noindex" },
     ],
   }),
   component: Admin,
 });
 
-type StatusFilter = "all" | LanternStatus;
-type OfficeFilter = "all" | "HTY" | "HmweBe" | "CDC" | "Other Regions";
+async function loadAdmin(
+  pin: string,
+): Promise<{ wishes: Lantern[]; autoApprove: boolean }> {
+  const source = getApiMode();
+  const [wishes, settings] = await Promise.all([
+    lanternService.getAll(pin),
+    apiRequest<{ autoApprove: boolean }>("/settings"),
+  ]);
+  if (source !== "browser" && getApiMode() === "browser") return loadAdmin(pin);
+  return { wishes, autoApprove: settings.autoApprove };
+}
 
 function Admin() {
-  const { session, loading: authLoading, signOut } = useAdminAuth();
-  const navigate = useNavigate();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const isLoginRoute = pathname === "/admin/login";
-  const { lanterns: all, error: loadError } = useLanterns();
-  const [filter, setFilter] = useState<StatusFilter>("pending");
-  const [officeFilter, setOfficeFilter] = useState<OfficeFilter>("all");
-  const [actionError, setActionError] = useState<string | null>(null);
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const [input, setInput] = useState("");
+  const [session, setSession] = useState<{
+    pin: string;
+    initial: Awaited<ReturnType<typeof loadAdmin>>;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (pathname === "/admin/login") return <Outlet />;
+  if (session)
+    return (
+      <Dashboard
+        pin={session.pin}
+        initial={session.initial}
+        onLogout={() => {
+          setSession(null);
+          setInput("");
+        }}
+      />
+    );
 
-  useEffect(() => {
-    if (!authLoading && !session && pathname === "/admin") {
-      void navigate({ to: "/admin/login", replace: true });
-    }
-  }, [authLoading, navigate, pathname, session]);
-
-  const stats = useMemo(() => ({
-    total: all.length,
-    approved: all.filter((l) => l.status === "approved").length,
-    rejected: all.filter((l) => l.status === "rejected").length,
-    pending: all.filter((l) => l.status === "pending").length,
-  }), [all]);
-  const rows = [...all]
-    .reverse()
-    .filter((lantern) => filter === "all" || lantern.status === filter)
-    .filter((lantern) => officeFilter === "all" || lantern.officeLocation === officeFilter)
-    .slice(0, 200);
-
-  const cards = [
-    { label: "Total submissions", v: stats.total, icon: Flame },
-    { label: "Approved", v: stats.approved, icon: CheckCircle2 },
-    { label: "Rejected", v: stats.rejected, icon: XCircle },
-    { label: "Pending", v: stats.pending, icon: Clock },
-  ];
-
-  if (isLoginRoute) return <Outlet />;
-  if (authLoading || !session) return null;
-
-  const changeStatus = async (id: string, status: LanternStatus) => {
-    setActionError(null);
+  const login = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
     try {
-      await lanternService.setStatus(id, status);
+      setSession({ pin: input, initial: await loadAdmin(input) });
     } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Message status could not be updated.");
+      setError(reason instanceof Error ? reason.message : "Login failed.");
+    } finally {
+      setBusy(false);
     }
   };
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-sky px-4">
+      <form
+        className="wish-card w-full max-w-sm space-y-5 p-7"
+        onSubmit={(event) => void login(event)}
+      >
+        <h1 className="text-2xl font-bold text-gold">Festival Moderation</h1>
+        <ApiModeNotice />
+        <p className="text-sm text-muted-foreground">
+          Enter your admin PIN to manage the live festival sky.
+        </p>
+        <label className="block">
+          Admin PIN
+          <input
+            type="password"
+            autoComplete="current-password"
+            required
+            maxLength={128}
+            className="mt-2 w-full rounded-xl border bg-background/80 px-4 py-3"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+          />
+        </label>
+        {error && (
+          <p role="alert" className="text-destructive">
+            {error}
+          </p>
+        )}
+        <button
+          disabled={busy}
+          className="w-full rounded-xl bg-primary px-4 py-3 font-bold disabled:opacity-50"
+        >
+          {busy ? "Verifying…" : "Unlock dashboard"}
+        </button>
+        <Link to="/" className="block text-center text-sm text-gold">
+          Back to festival sky
+        </Link>
+      </form>
+    </main>
+  );
+}
 
-  const exportMessages = async () => {
-    setActionError(null);
+function Dashboard({
+  pin,
+  initial,
+  onLogout,
+}: {
+  pin: string;
+  initial: Awaited<ReturnType<typeof loadAdmin>>;
+  onLogout: () => void;
+}) {
+  const query = useQuery({
+    queryKey: ["moderation", pin],
+    queryFn: () => loadAdmin(pin),
+    initialData: initial,
+    refetchInterval: 5000,
+    retry: false,
+    gcTime: 0,
+  });
+  const all = query.data.wishes;
+  const [status, setStatus] = useState<LanternStatus>("approved");
+  const [plant, setPlant] = useState<LanternLocation | "All">("All");
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<Lantern | null>(null);
+  const [message, setMessage] = useState("");
+  const run = async (action: () => Promise<void>) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
     try {
-      downloadApprovedLanterns(await lanternService.exportAll());
+      await action();
+      const result = await query.refetch();
+      if (result.error) throw result.error;
     } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Submissions could not be exported.");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Action failed. Please retry.",
+      );
+    } finally {
+      setBusy(false);
     }
   };
-
-  const resetSamples = async () => {
-    if (!confirm("Reset all messages to the sample collection?")) return;
-    setActionError(null);
-    try {
-      await lanternService.resetDemoData();
-    } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Sample messages could not be restored.");
+  const rows = all
+    .filter((wish) => wish.status === status)
+    .filter((wish) => plant === "All" || wish.officeLocation === plant)
+    .filter((wish) =>
+      `${wish.name} ${wish.email ?? ""} ${wish.message}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+    )
+    .sort(
+      (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt),
+    );
+  const saveEdit = async (event: FormEvent) => {
+    event.preventDefault();
+    const invalid = validateWish(message);
+    if (invalid) {
+      setError(invalid);
+      return;
     }
+    if (editing)
+      await run(async () => {
+        await lanternService.update(editing, { message }, pin);
+        setEditing(null);
+      });
   };
-
-  const logout = async () => {
-    setActionError(null);
-    try {
-      await signOut();
-      await navigate({ to: "/admin/login", replace: true });
-    } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Logout failed.");
-    }
-  };
-
   return (
     <main className="min-h-screen bg-sky px-4 py-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mx-auto max-w-6xl">
+        <ApiModeNotice className="mb-4" />
+        <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">{appTitle} · Admin</h1>
-            <p className="text-sm text-muted-foreground">{appSubtitle}. Only approved lanterns appear on the festival display.</p>
+            <p className="text-xs uppercase tracking-widest text-gold">
+              Share the Light
+            </p>
+            <h1 className="text-3xl font-bold">Live Moderation</h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => void exportMessages()}
-              className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              <Download className="h-4 w-4" /> Export Excel
-            </button>
-            <button onClick={() => void resetSamples()}
-              className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              <RotateCcw className="h-4 w-4" /> Reset sample data
-            </button>
-            <button onClick={logout}
-              className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              <LogOut className="h-4 w-4" /> Log out
-            </button>
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-gold">Local prototype only. Replace this development API with company-managed authentication before deployment.</p>
-        {actionError && <p className="mt-3 text-sm text-destructive" role="alert">{actionError}</p>}
-        {loadError && <p className="mt-3 text-sm text-destructive" role="alert">{loadError}</p>}
-
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {cards.map((c) => (
-            <div key={c.label} className="glass rounded-2xl p-4">
-              <c.icon className="h-5 w-5 text-gold" />
-              <p className="mt-2 text-3xl font-bold tabular-nums text-foreground">{c.v.toLocaleString()}</p>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">{c.label}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-8 flex gap-2">
-          {(["pending", "approved", "rejected", "all"] as StatusFilter[]).map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`rounded-full px-4 py-1.5 text-sm capitalize transition ${filter === f ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:text-foreground"}`}>
-              {f}
-            </button>
-          ))}
-        </div>
-        <label className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          Office location
-          <select
-            value={officeFilter}
-            onChange={(event) => setOfficeFilter(event.target.value as OfficeFilter)}
-            className="rounded-full border border-border bg-background/70 px-4 py-2 text-foreground"
+          <button onClick={onLogout} className="admin-button">
+            Lock dashboard
+          </button>
+        </header>
+        <section className="glass mt-6 flex flex-wrap items-center justify-between gap-5 rounded-2xl p-5">
+          <label
+            className="flex items-center gap-3 font-bold text-gold"
+            htmlFor="auto-approve"
           >
-            <option value="all">All offices</option>
-            <option value="HTY">HTY</option>
-            <option value="HmweBe">HmweBe</option>
-            <option value="CDC">CDC</option>
-            <option value="Other Regions">Other Regions</option>
-          </select>
+            <Switch
+              id="auto-approve"
+              checked={query.data.autoApprove}
+              disabled={busy}
+              onCheckedChange={(autoApprove) =>
+                void run(async () => {
+                  await apiRequest("/settings", "PATCH", { autoApprove }, pin);
+                })
+              }
+            />
+            Auto-Approve New Wishes
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  downloadLanternCsv(await lanternService.getAll(pin));
+                })
+              }
+              className="admin-button"
+            >
+              Export CSV
+            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  disabled={busy}
+                  className="admin-button border-red-400/60 bg-red-950/60 text-red-200"
+                >
+                  Reset All / Clear All
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Clear every festival wish?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes all approved, pending and rejected
+                    wishes across every plant. Counters will reset on the next
+                    live refresh. Auto-Approve settings are preserved. Export a
+                    CSV first if needed.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive"
+                    onClick={() => void run(() => lanternService.clear(pin))}
+                  >
+                    Yes, clear all wishes
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </section>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Live updates every 5 seconds · Auto-Approve affects new wishes only.
+        </p>
+        {(error || query.error) && (
+          <p
+            role="alert"
+            className="mt-4 rounded-xl border border-red-400/40 bg-red-950/80 p-3 text-red-200"
+          >
+            {error || query.error?.message}
+          </p>
+        )}
+        <div className="mt-6 grid grid-cols-5 gap-2">
+          {(["All", ...OFFICE_LOCATIONS] as const).map((location) => (
+            <button
+              key={location}
+              onClick={() => setPlant(location)}
+              aria-pressed={plant === location}
+              className={`rounded-xl border p-3 text-center ${plant === location ? "border-gold bg-primary/70" : "glass"}`}
+            >
+              <span className="block text-xs text-gold">{location}</span>
+              <span className="text-2xl font-bold">
+                {location === "All"
+                  ? all.length
+                  : all.filter((wish) => wish.officeLocation === location)
+                      .length}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div
+          className="mt-7 flex flex-wrap gap-2"
+          role="group"
+          aria-label="Wish status"
+        >
+          {(["approved", "pending", "rejected"] as const).map((value) => (
+            <button
+              key={value}
+              onClick={() => setStatus(value)}
+              aria-pressed={status === value}
+              className={`admin-button ${status === value ? "border-gold bg-primary" : "glass"}`}
+            >
+              {value === "approved"
+                ? "Approved (Live on Display)"
+                : value === "pending"
+                  ? "Pending"
+                  : "Rejected"}
+              {" · "}
+              {all.filter((wish) => wish.status === value).length}
+            </button>
+          ))}
+        </div>
+        <label className="mt-5 block text-sm">
+          Search by employee name, email or message
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="mt-2 w-full rounded-xl border bg-background/80 px-4 py-3"
+            placeholder="Find a wish…"
+          />
         </label>
-
-        <div className="glass mt-4 divide-y divide-border overflow-hidden rounded-2xl">
-          {rows.length === 0 && <p className="p-6 text-center text-muted-foreground">No submissions here.</p>}
-          {rows.map((l) => (
-            <div key={l.id} className="flex flex-wrap items-center gap-3 p-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-foreground">"{l.message}"</p>
+        <div className="mt-4 space-y-3">
+          {!rows.length && (
+            <p className="glass rounded-xl p-8 text-center text-muted-foreground">
+              No wishes match these filters.
+            </p>
+          )}
+          {rows.map((wish) => (
+            <article
+              key={wish.id}
+              className="glass flex flex-wrap items-center gap-4 rounded-xl p-5"
+            >
+              <div className="min-w-0 flex-1 basis-72">
+                <p className="whitespace-pre-wrap break-words">
+                  {wish.message}
+                </p>
+                <p className="mt-2 break-words text-xs text-gold">
+                  {wish.name} · {wish.email} · {wish.officeLocation}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {l.name || "Anonymous"} · {l.officeLocation} · {new Date(l.createdAt).toLocaleString()} ·{" "}
-                  <span className={l.status === "approved" ? "text-success" : l.status === "rejected" ? "text-destructive" : "text-gold"}>{l.status}</span>
+                  {new Date(wish.createdAt).toLocaleString()}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => void changeStatus(l.id, "approved")} disabled={l.status === "approved"} aria-label="Approve"
-                  className="flex items-center gap-1 rounded-full bg-success/15 px-3 py-1.5 text-sm text-success hover:bg-success/25 disabled:opacity-30">
-                  <Check className="h-4 w-4" /> Approve
+              <div className="flex flex-wrap gap-2">
+                {wish.status !== "approved" && (
+                  <button
+                    className="admin-button text-green-200"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(() =>
+                        lanternService.update(
+                          wish,
+                          { status: "approved" },
+                          pin,
+                        ),
+                      )
+                    }
+                  >
+                    Approve
+                  </button>
+                )}
+                {wish.status !== "rejected" && (
+                  <button
+                    className="admin-button text-red-200"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(() =>
+                        lanternService.update(
+                          wish,
+                          { status: "rejected" },
+                          pin,
+                        ),
+                      )
+                    }
+                  >
+                    Hide (Reject)
+                  </button>
+                )}
+                <button
+                  className="admin-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setEditing(wish);
+                    setMessage(wish.message);
+                    setError(null);
+                  }}
+                >
+                  Edit Message
                 </button>
-                <button onClick={() => void changeStatus(l.id, "rejected")} disabled={l.status === "rejected"} aria-label="Reject"
-                  className="flex items-center gap-1 rounded-full bg-destructive/15 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/25 disabled:opacity-30">
-                  <X className="h-4 w-4" /> Reject
+                <button
+                  className="admin-button text-red-200"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Permanently delete the wish by ${wish.name}?`,
+                      )
+                    )
+                      void run(() => lanternService.delete(wish, pin));
+                  }}
+                >
+                  Delete
                 </button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
+        <Dialog
+          open={editing !== null}
+          onOpenChange={(open) => {
+            if (!open && !busy) setEditing(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Message</DialogTitle>
+              <DialogDescription>
+                Use at least 3 non-whitespace characters. There is no character
+                limit.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={(event) => void saveEdit(event)}
+              className="space-y-4"
+            >
+              <label className="block">
+                Wish message
+                <textarea
+                  required
+                  minLength={3}
+                  rows={4}
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  className="mt-2 w-full rounded-xl border bg-background p-3"
+                />
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {message.length.toLocaleString()} characters
+              </p>
+              {error && (
+                <p role="alert" className="text-red-300">
+                  {error}
+                </p>
+              )}
+              <button disabled={busy} className="admin-button bg-primary">
+                Save message
+              </button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </main>
   );

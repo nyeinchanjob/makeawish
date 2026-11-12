@@ -31,9 +31,9 @@
   --color-gold: var(--gold);
   --color-ember: var(--ember);
   --color-success: var(--success);
-  --font-display: "Great Vibes", cursive;
-  --font-serif: "Playfair Display", serif;
-  --font-sans: "Outfit", system-ui, sans-serif;
+  --font-display: "TCCC Unity Text", sans-serif;
+  --font-serif: "TCCC Unity Text", sans-serif;
+  --font-sans: "TCCC Unity Text", sans-serif;
 }
 
 :root {
@@ -57,15 +57,30 @@
   --border: oklch(0.95 0.03 90 / 0.2);
   --input: oklch(0.95 0.03 90 / 0.3);
   --ring: oklch(0.95 0.02 90);
-  --gold: oklch(0.97 0.02 92);
+  --gold: #f5d076;
   --ember: oklch(0.75 0.18 45);
   --success: oklch(0.75 0.16 150);
-  --festival-background-image: none;
-  --myanmar-font-file: url("/assets/fonts/myanmar.woff2");
-  --sky: radial-gradient(ellipse at 50% 110%, oklch(0.55 0.15 28 / 0.3), transparent 55%),
-    radial-gradient(ellipse at 20% 0%, oklch(0.4 0.1 250 / 0.4), transparent 60%),
-    linear-gradient(180deg, oklch(0.1 0.04 255), oklch(0.15 0.055 252) 58%, oklch(0.23 0.1 25));
-  --glow-red: 0 0 30px oklch(0.6 0.24 27 / 0.7), 0 10px 40px -10px oklch(0.6 0.24 27 / 0.9);
+  --festival-background-image: url("/background.png");
+  --sky:
+    radial-gradient(
+      ellipse at 50% 110%,
+      oklch(0.55 0.15 28 / 0.3),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 20% 0%,
+      oklch(0.4 0.1 250 / 0.4),
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      oklch(0.1 0.04 255),
+      oklch(0.15 0.055 252) 58%,
+      oklch(0.23 0.1 25)
+    );
+  --glow-red:
+    0 0 30px oklch(0.6 0.24 27 / 0.7),
+    0 10px 40px -10px oklch(0.6 0.24 27 / 0.9);
 }
 
 @layer base {
@@ -82,42 +97,53 @@
     margin: 0;
   }
   @font-face {
-    font-family: "Share Myanmar";
-    src: var(--myanmar-font-file) format("woff2");
-    font-display: swap;
-  }
-  @font-face {
     font-family: "TCCC Unity Text";
-    src: url("/assets/fonts/TCCC-UnityText-Regular.woff2") format("woff2");
+    src: url("/TCCC-UnityText-Regular.ttf") format("truetype");
     font-style: normal;
     font-weight: 400;
-    font-display: swap;
-  }
-  @font-face {
-    font-family: "TCCC Unity Text";
-    src: url("/assets/fonts/TCCC-UnityText-Bold.woff2") format("woff2");
-    font-style: normal;
-    font-weight: 700;
     font-display: swap;
   }
   body {
     background: var(--color-background);
     color: var(--color-foreground);
-    font-family: "Myanmar Text", "Noto Sans Myanmar", "Padauk", "Share Myanmar", var(--font-sans);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+  }
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
   }
 }
 
 @utility bg-sky {
-  background-image: linear-gradient(180deg, oklch(0.1 0.04 255 / 0.35), oklch(0.2 0.08 22 / 0.25)), var(--festival-background-image), var(--sky);
+  background-image:
+    linear-gradient(
+      180deg,
+      oklch(0.1 0.04 255 / 0.35),
+      oklch(0.2 0.08 22 / 0.25)
+    ),
+    var(--festival-background-image), var(--sky);
   background-position: center, center, center;
   background-size: cover, cover, cover;
   background-attachment: fixed;
 }
-@utility text-glow { text-shadow: 0 0 18px oklch(0.7 0.22 27 / 0.8), 0 0 44px oklch(0.6 0.24 27 / 0.6); }
-@utility shadow-glow { box-shadow: var(--glow-red); }
+@utility text-glow {
+  text-shadow:
+    0 0 18px oklch(0.7 0.22 27 / 0.8),
+    0 0 44px oklch(0.6 0.24 27 / 0.6);
+}
+@utility shadow-glow {
+  box-shadow: var(--glow-red);
+}
 @utility wish-card {
   border-radius: 1.25rem;
-  background: linear-gradient(160deg, oklch(0.24 0.06 255 / 0.94), oklch(0.22 0.08 25 / 0.94));
+  background: linear-gradient(
+    160deg,
+    oklch(0.24 0.06 255 / 0.94),
+    oklch(0.22 0.08 25 / 0.94)
+  );
   border: 1px solid oklch(0.95 0.03 90 / 0.35);
   box-shadow: 0 0 40px oklch(0.6 0.22 27 / 0.28);
   backdrop-filter: blur(12px);
@@ -144,58 +170,177 @@
   animation: flameFlicker 2.4s ease-in-out infinite alternate;
 }
 @keyframes flameFlicker {
-  from { opacity: .8; transform: scale(.92, .96) }
-  to { opacity: 1; transform: scale(1.05, 1.02) }
+  from {
+    opacity: 0.8;
+    transform: scale(0.92, 0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.05, 1.02);
+  }
 }
 
 .star {
-  position: absolute; border-radius: 9999px;
+  position: absolute;
+  border-radius: 9999px;
   background: oklch(0.98 0.03 90);
   animation: twinkle 3.5s ease-in-out infinite;
 }
-@keyframes twinkle { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 
-.float-up { animation: floatUp linear infinite; }
-.float-new { animation: floatNew 9s cubic-bezier(.3,.1,.4,1) forwards; z-index: 10; }
+.float-up {
+  animation: floatUp linear infinite;
+}
+.float-new {
+  animation: floatNew 9s cubic-bezier(0.3, 0.1, 0.4, 1) forwards;
+  z-index: 10;
+}
 @keyframes floatUp {
-  0% { transform: translateY(10%); opacity: 0 }
-  8% { opacity: 1 }
-  85% { opacity: .9 }
-  100% { transform: translateY(calc(-100vh - 120%)); opacity: 0 }
+  0% {
+    transform: translateY(10%);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(calc(-100vh - 120%));
+    opacity: 0;
+  }
 }
 @keyframes floatNew {
-  0% { transform: translateY(0) scale(.4); opacity: 0 }
-  10% { opacity: 1; transform: translateY(-5vh) scale(1) }
-  100% { transform: translateY(-75vh) scale(.8); opacity: .95 }
+  0% {
+    transform: translateY(0) scale(0.4);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-5vh) scale(1);
+  }
+  100% {
+    transform: translateY(-75vh) scale(0.8);
+    opacity: 0.95;
+  }
 }
-.sway { animation: sway ease-in-out infinite alternate; transform-origin: 50% 0; }
-@keyframes sway { from { transform: translateX(-6px) rotate(-4deg) } to { transform: translateX(6px) rotate(4deg) } }
+.sway {
+  animation: sway ease-in-out infinite alternate;
+  transform-origin: 50% 0;
+}
+@keyframes sway {
+  from {
+    transform: translateX(-6px) rotate(-4deg);
+  }
+  to {
+    transform: translateX(6px) rotate(4deg);
+  }
+}
 
-.release { animation: release 2.4s cubic-bezier(.4,0,.2,1) forwards; }
+.release {
+  animation: release 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
 @keyframes release {
-  0% { transform: translateY(0) scale(1); opacity: 1 }
-  20% { transform: translateY(10px) scale(1.15) }
-  100% { transform: translateY(-80vh) scale(.5); opacity: 0 }
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  20% {
+    transform: translateY(10px) scale(1.15);
+  }
+  100% {
+    transform: translateY(-80vh) scale(0.5);
+    opacity: 0;
+  }
 }
 .wish-launch-lantern {
   position: fixed;
   z-index: 60;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  animation: wishLaunch 2.4s cubic-bezier(.3,.1,.4,1) forwards;
+  animation: wishLaunch 2.4s cubic-bezier(0.3, 0.1, 0.4, 1) forwards;
 }
 @keyframes wishLaunch {
-  0% { opacity: 0; transform: translate(-50%, -35%) scale(.55) }
-  12% { opacity: 1 }
-  100% { opacity: 0; transform: translate(-50%, -75vh) scale(.8) }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -35%) scale(0.55);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -75vh) scale(0.8);
+  }
 }
-.firework { position: absolute; width: 6px; height: 6px; border-radius: 9999px; background: var(--gold); animation: burst 1.6s ease-out forwards; }
-@keyframes burst { from { transform: translate(0,0); opacity: 1 } to { transform: translate(var(--dx), var(--dy)); opacity: 0 } }
-.fade-cycle { animation: fadeCycle 7s ease-in-out forwards; }
-@keyframes fadeCycle { 0% { opacity: 0; transform: translateY(20px) } 12%,85% { opacity: 1; transform: none } 100% { opacity: 0; transform: translateY(-20px) } }
-.floating-wish { animation: floatWishIn 1.2s ease-out both, wishDrift 8s ease-in-out 1.2s infinite alternate; }
-@keyframes floatWishIn { from { opacity: 0; translate: 0 12px } to { opacity: 1; translate: 0 0 } }
-@keyframes wishDrift { from { transform: translateY(-2px) } to { transform: translateY(3px) } }
+.firework {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--gold);
+  animation: burst 1.6s ease-out forwards;
+}
+@keyframes burst {
+  from {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--dx), var(--dy));
+    opacity: 0;
+  }
+}
+.fade-cycle {
+  animation: fadeCycle 7s ease-in-out forwards;
+}
+@keyframes fadeCycle {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  12%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+.floating-wish {
+  animation:
+    floatWishIn 1.2s ease-out both,
+    wishDrift 8s ease-in-out 1.2s infinite alternate;
+}
+@keyframes floatWishIn {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes wishDrift {
+  from {
+    transform: translateY(-2px);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
 
 .display-main {
   position: fixed;
@@ -211,7 +356,9 @@
   isolation: isolate;
 }
 .display-main.has-tccc-unity-font {
-  font-family: "TCCC Unity Text", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-sans);
+  font-family:
+    "TCCC Unity Text", "Myanmar Text", "Noto Sans Myanmar", "Padauk",
+    var(--font-sans);
 }
 .display-main.has-tccc-unity-font .floating-wish,
 .display-main.has-tccc-unity-font .display-title,
@@ -219,7 +366,9 @@
 .display-main.has-tccc-unity-font .display-tagline,
 .display-main.has-tccc-unity-font .display-count-label,
 .display-main.has-tccc-unity-font .display-qr-instruction {
-  font-family: "TCCC Unity Text", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-sans);
+  font-family:
+    "TCCC Unity Text", "Myanmar Text", "Noto Sans Myanmar", "Padauk",
+    var(--font-sans);
 }
 .display-decor {
   position: absolute;
@@ -252,9 +401,9 @@
 }
 .display-title {
   font-size: clamp(2rem, 5.5vw, 3rem);
-  line-height: 1;
-  font-family:'Courier New', Courier, monospace;
-  font-weight:bold;
+  line-height: 1.6;
+  font-family: var(--font-sans);
+  font-weight: bold;
   overflow-wrap: anywhere;
 }
 .display-subtitle {
@@ -277,23 +426,33 @@
   right: clamp(0.75rem, 2vw, 2rem);
 }
 .display-stage {
-  position: relative;
+  position: absolute;
+  top: 22%;
+  bottom: 22%;
+  left: max(4%, calc((100% - 1120px) / 2 - 4%));
+  right: 4%;
+  max-width: 1120px;
   display: grid;
   min-height: 0;
   place-items: center;
-  padding: clamp(0.25rem, 1vh, 1rem) 0;
 }
 .wish-field {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: repeat(var(--wish-columns), minmax(0, 1fr));
-  grid-template-rows: repeat(var(--wish-rows, 2), minmax(0, 1fr));
-  align-items: center;
-  justify-items: center;
-  gap: clamp(0.35rem, 1.5vw, 1.5rem);
-  padding: clamp(0.35rem, 1vw, 1rem);
+  grid-template-columns: repeat(var(--wish-columns), minmax(0, 340px));
+  grid-template-rows: repeat(var(--wish-rows, 2), minmax(0, 300px));
+  align-content: center;
+  justify-content: center;
+  gap: 20px;
+  padding: calc(54px + max(20px, 4vh)) 0 52px;
   pointer-events: none;
+}
+.wish-slot {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
 }
 .floating-wish {
   width: 100%;
@@ -302,7 +461,9 @@
   margin: 0;
   text-align: center;
   overflow-wrap: anywhere;
-  font-family: "Share Myanmar", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-serif);
+  font-family:
+    "Share Myanmar", "Myanmar Text", "Noto Sans Myanmar", "Padauk",
+    var(--font-serif);
   font-size: clamp(1rem, 1.35vw, 1.5rem);
   line-height: 1.5;
   color: oklch(0.99 0.07 100);
@@ -321,7 +482,10 @@
   opacity: 0;
   filter: blur(3px);
   transform: translateY(-4px);
-  transition: opacity 700ms ease, filter 700ms ease, transform 700ms ease;
+  transition:
+    opacity 700ms ease,
+    filter 700ms ease,
+    transform 700ms ease;
 }
 @keyframes wishFadeIn {
   from {
@@ -368,6 +532,8 @@
   text-shadow: 0 0 18px oklch(0.8 0.16 62 / 0.55);
 }
 .display-footer {
+  position: absolute;
+  inset: auto 4% 2%;
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -407,8 +573,8 @@
 }
 .display-qr-image,
 .display-qr-placeholder {
-  width: clamp(7rem, 16vh, 12rem);
-  height: clamp(7rem, 16vh, 12rem);
+  width: clamp(5rem, 14vh, 11rem);
+  height: clamp(5rem, 14vh, 11rem);
   border: 2px solid oklch(0.95 0.03 90 / 0.85);
   border-radius: 0.75rem;
   background: oklch(0.99 0.005 90);
@@ -417,7 +583,7 @@
 .display-qr-image {
   display: block;
   object-fit: contain;
-  padding: 0.3rem;
+  padding: 0.625rem;
 }
 .display-qr-placeholder {
   display: flex;
@@ -426,7 +592,7 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0.6rem;
-  color: oklch(0.28 0.04 255)
+  color: oklch(0.28 0.04 255);
   font-size: clamp(0.6rem, 1vw, 0.85rem);
   font-weight: 700;
 }
@@ -442,6 +608,14 @@
   letter-spacing: 0.1em;
   text-shadow: 0 1px 5px oklch(0.08 0.03 255 / 0.9);
 }
+.display-qr-helper {
+  margin: 0;
+  max-width: 16rem;
+  color: #fde68a;
+  font-size: clamp(0.625rem, 0.8vw, 0.8rem);
+  line-height: 1.4;
+  opacity: 0.8;
+}
 .visitor-success {
   display: flex;
   min-height: min(58vh, 34rem);
@@ -454,17 +628,197 @@
   margin-top: clamp(2rem, 10vh, 6rem);
   justify-content: center;
   padding-inline: 2rem;
-  transition: filter 180ms ease, transform 180ms ease;
+  transition:
+    filter 180ms ease,
+    transform 180ms ease;
 }
 .visitor-success-link:hover {
   filter: brightness(1.12);
   transform: translateY(-2px);
 }
 
+.admin-button {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  transition: background 150ms;
+  cursor: pointer;
+}
+.admin-button:hover {
+  background-color: #f5d07622;
+}
+.admin-button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.display-sync-error {
+  position: absolute;
+  z-index: 3;
+  top: 20%;
+  inset-inline: 5%;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #fed7aa;
+}
+.kanote-card {
+  --card-padding: 18px;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-height: 300px;
+  max-width: 340px;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #f5d076;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 18, 35, 0.72),
+    rgba(28, 22, 48, 0.65)
+  );
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.2),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+  animation:
+    kanoteEnter 750ms ease-out both,
+    kanoteFloat var(--float-duration, 7500ms) linear 750ms forwards;
+}
+.kanote-card-exiting {
+  animation: kanoteExit 750ms ease-in both;
+}
+/* Keep Safari's fallback separate so CSS optimization preserves both variants. */
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .kanote-card {
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+}
+.kanote-message {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  min-height: 0;
+  width: 100%;
+  max-height: 100%;
+  max-height: round(down, 100cqh, 1lh);
+  align-self: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: min(
+    calc(clamp(0.875rem, 1.1vw, 1.125rem) * var(--message-scale, 1)),
+    calc((100cqh - 1px) / 1.65)
+  );
+  line-height: 1.65;
+  font-family: "TCCC Unity Text", sans-serif;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.kanote-message-area {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+}
+.kanote-copy {
+  position: absolute;
+  inset: var(--card-padding);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+.kanote-card-new {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.2),
+    0 12px 32px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(245, 208, 118, 0.35);
+}
+.kanote-new-badge {
+  position: absolute;
+  top: -10px;
+  right: 24px;
+  border: 1px solid #f5d076;
+  border-radius: 999px;
+  padding: 1px 8px;
+  background: #241a24;
+  color: #fde68a;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.kanote {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  color: #f5d076;
+  pointer-events: none;
+}
+.kanote-sender {
+  color: #fde68a;
+}
+.kanote-0 {
+  top: 4px;
+  left: 4px;
+}
+.kanote-1 {
+  top: 4px;
+  right: 4px;
+  transform: rotate(90deg);
+}
+.kanote-2 {
+  bottom: 4px;
+  right: 4px;
+  transform: rotate(180deg);
+}
+.kanote-3 {
+  bottom: 4px;
+  left: 4px;
+  transform: rotate(270deg);
+}
+@keyframes kanoteFloat {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-14px);
+  }
+}
+@keyframes kanoteEnter {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+@keyframes kanoteExit {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(-42px);
+  }
+}
+
 @media (max-height: 780px) {
   .display-main {
     gap: clamp(0.35rem, 1vh, 0.75rem);
     padding-block: clamp(0.75rem, 1.5vh, 1.25rem);
+  }
+  .display-title {
+    font-size: clamp(1.5rem, 5vh, 2.5rem);
   }
 }
 
@@ -485,12 +839,33 @@
     width: clamp(6rem, 18vw, 8rem);
     height: clamp(6rem, 18vw, 8rem);
   }
+  .display-qr-section {
+    gap: 4px;
+  }
+  .display-qr-instruction {
+    font-size: 9px;
+    line-height: 1.3;
+    letter-spacing: 0.04em;
+  }
+  .display-qr-helper {
+    font-size: 9px;
+    line-height: 1.3;
+  }
   .display-count-label {
     letter-spacing: 0.08em;
   }
-  .wish-field {
-    gap: 0.5rem;
-    padding: 0.25rem;
+  .kanote-card {
+    --card-padding: 14px;
+  }
+  .kanote-copy {
+    gap: 6px;
+  }
+  .kanote-sender {
+    font-size: 10px;
+  }
+  .kanote {
+    width: 28px;
+    height: 28px;
   }
   .floating-wish {
     font-size: clamp(0.9rem, 3vw, 1.15rem);
@@ -506,7 +881,111 @@
   }
 }
 
+@media (max-width: 599px) {
+  .display-stage {
+    bottom: max(22%, 162px);
+  }
+  .wish-field {
+    row-gap: 76px;
+    padding-top: 52px;
+    padding-bottom: 34px;
+  }
+  .kanote-card {
+    --card-padding: 3px;
+  }
+  .kanote-copy {
+    gap: 2px;
+  }
+  .kanote-sender {
+    font-size: 9px;
+  }
+}
+
+@media (max-height: 600px) {
+  .wish-field {
+    padding-top: 52px;
+    padding-bottom: 34px;
+  }
+  .display-main {
+    padding-top: 6px;
+  }
+  .display-header > p:first-child {
+    font-size: 10px;
+  }
+  .display-title {
+    font-size: 22px;
+  }
+  .display-subtitle {
+    margin-top: 0;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .display-tagline {
+    display: none;
+  }
+  .display-qr-image {
+    width: 10vh;
+    height: 10vh;
+  }
+  .display-qr-instruction {
+    font-size: 9px;
+  }
+  .display-count {
+    font-size: 26px;
+  }
+  .display-count-label {
+    margin-top: 2px;
+    font-size: 10px;
+  }
+  .display-counter > p:last-child {
+    margin-top: 2px;
+    font-size: 10px;
+  }
+  .display-counter .lantern-wrap {
+    width: 20px !important;
+    height: 30px !important;
+  }
+  .display-counter .lantern {
+    width: 20px;
+    height: 30px;
+  }
+  .kanote-card {
+    --card-padding: 6px;
+  }
+  .kanote-copy {
+    gap: 4px;
+  }
+  .kanote-sender {
+    font-size: 10px;
+  }
+  .kanote {
+    width: 24px;
+    height: 24px;
+  }
+  .display-qr-section {
+    gap: 2px;
+  }
+  .display-qr-helper {
+    font-size: 9px;
+  }
+}
+
+@media (max-height: 340px) {
+  .display-header > p:first-child {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .kanote-card {
+    animation: none;
+  }
+  .float-up,
+  .sway,
+  .star,
+  .lantern-flame {
+    animation: none;
+  }
   .wish-launch-lantern {
     animation-duration: 0.01ms;
   }

@@ -1,229 +1,312 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import type { Lantern } from "@/lib/lanterns";
 
-interface FloatingWishesProps {
-  messages: Lantern[];
+export function getWishLayout(width: number) {
+  return {
+    columns: width < 600 ? 2 : 3,
+    rows: width < 600 ? 3 : 2,
+    capacity: 6,
+  };
 }
 
-interface WishSlot {
-  message: Lantern;
-  position: number;
-  size: "small" | "medium" | "large";
-  phase: "visible" | "entering" | "exiting";
+export function selectNextWishes(
+  messages: Lantern[],
+  count: number,
+  seen: Set<string>,
+  cursor: number,
+) {
+  const fresh = messages.filter((message) => !seen.has(message.id));
+  const rotated = [...messages.slice(cursor), ...messages.slice(0, cursor)];
+  const chosen = [
+    ...fresh,
+    ...rotated.filter((message) => seen.has(message.id)),
+  ].slice(0, count);
+  chosen.forEach((message) => seen.add(message.id));
+  return chosen;
 }
 
-interface WishPosition {
-  column: number;
-  row: number;
-}
-
-function hashString(value: string) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index++) {
-    hash = Math.imul(hash ^ value.charCodeAt(index), 16777619);
-  }
-  return hash >>> 0;
-}
-
-function getTargetCount(width: number, height: number) {
-  if (height < 560) return 1;
-  if (width < 700) return 2;
-  if (width < 1000) return 3;
-  if (width < 1400) return 4;
-  if (width < 1800) return 5;
-  return 6;
-}
-
-function getWishSize(message: Lantern): WishSlot["size"] {
-  if (message.message.length > 130) return "small";
-  const size = hashString(message.id) % 3;
-  return size === 0 ? "small" : size === 1 ? "medium" : "large";
-}
-
-export function FloatingWishes({ messages }: FloatingWishesProps) {
-  const [targetCount, setTargetCount] = useState(() =>
-    typeof window === "undefined" ? 4 : getTargetCount(window.innerWidth, window.innerHeight),
+function Kanote({ corner }: { corner: number }) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      className={`kanote kanote-${corner}`}
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M3 58V17Q3 3 17 3H58M9 49Q30 46 27 27Q25 12 13 16Q6 20 13 28Q19 33 23 25M9 39Q13 35 18 37Q29 42 39 28Q45 18 37 10Q32 17 25 17M32 6Q42 3 48 10Q41 13 39 22M6 57Q15 53 18 44M57 6Q53 15 44 18"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path d="M9 9Q14 5 19 9Q14 14 9 19Q5 14 9 9Z" fill="currentColor" />
+    </svg>
   );
-  const [slots, setSlots] = useState<WishSlot[]>([]);
-  const nextMessageRef = useRef(0);
-  const swapTimersRef = useRef<number[]>([]);
-  const slotsRef = useRef<WishSlot[]>([]);
-  const positionsByMessageRef = useRef(new Map<string, number>());
-  const columns = targetCount <= 2 ? 2 : 3;
-  const layout = useMemo(() => {
-    const result = new Map<number, WishPosition>();
-    slots.forEach((slot) => {
-      result.set(slot.position, {
-        column: slot.position % columns,
-        row: Math.floor(slot.position / columns),
-      });
-    });
-    return result;
-  }, [columns, slots]);
+}
+
+interface Card {
+  wish: Lantern;
+  position: number;
+  newUntil: number;
+  cycleKey: number;
+  exiting: boolean;
+  enteredAt: number;
+  floatDuration: number;
+}
+
+function cardGroup(position: number, columns: number) {
+  return columns === 3 ? position % 3 : Math.floor(position / 2);
+}
+
+function WishCopy({ wish }: { wish: Lantern }) {
+  return (
+    <div
+      className="kanote-copy"
+      style={
+        {
+          "--message-scale":
+            wish.message.length > 600
+              ? 0.8
+              : wish.message.length > 200
+                ? 0.9
+                : 1,
+        } as CSSProperties
+      }
+    >
+      <div className="kanote-message-area">
+        <p className="kanote-message">{wish.message}</p>
+      </div>
+      <footer className="kanote-sender flex items-center justify-between gap-2 text-xs">
+        <span className="min-w-0 truncate">— {wish.name}</span>
+        <span className="shrink-0 rounded-full border border-current/50 px-2 py-0.5">
+          {wish.officeLocation}
+        </span>
+      </footer>
+    </div>
+  );
+}
+
+export function FloatingWishes({ messages }: { messages: Lantern[] }) {
+  const [layout, setLayout] = useState(() =>
+    getWishLayout(typeof window === "undefined" ? 1440 : window.innerWidth),
+  );
+  const [cards, setCards] = useState<Card[]>([]);
+  const cardsRef = useRef<Card[]>([]);
+  const latest = useRef<Lantern[]>([]);
+  const known = useRef<Set<string> | null>(null);
+  const arrivals = useRef(new Set<string>());
+  const seen = useRef(new Set<string>());
+  const cursor = useRef(0);
+  const nextGroup = useRef(0);
+  const nextRotationAt = useRef(Date.now() + 3000);
+  const generation = useRef(0);
+  const previousColumns = useRef(layout.columns);
+  const commit = useCallback((next: Card[]) => {
+    cardsRef.current = next;
+    setCards(next);
+  }, []);
 
   useEffect(() => {
-    slotsRef.current = slots;
-  }, [slots]);
-
-  useEffect(() => {
-    const resize = () => setTargetCount(getTargetCount(window.innerWidth, window.innerHeight));
+    const resize = () => setLayout(getWishLayout(window.innerWidth));
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
 
   useEffect(() => {
-    if (!messages.length) {
-      setSlots([]);
-      return;
+    latest.current = messages;
+    if (!known.current && messages.length) {
+      // The first snapshot is existing data, not a burst of newly submitted wishes.
+      known.current = new Set(messages.map((wish) => wish.id));
+    } else if (known.current) {
+      for (const wish of messages) {
+        if (!known.current.has(wish.id)) arrivals.current.add(wish.id);
+        known.current.add(wish.id);
+      }
     }
-
-    const count = Math.min(targetCount, messages.length);
-    const createSlot = (
-      message: Lantern,
-      occupied: Set<number>,
-    ): WishSlot => {
-      const capacity = columns * 2;
-      const start = hashString(message.id) % capacity;
-      const occupiedRows = Array.from({ length: 2 }, (_, row) =>
-        [...occupied].filter((position) => Math.floor(position / columns) === row).length,
-      );
-      const available = Array.from({ length: capacity }, (_, position) => position)
-        .filter((position) => !occupied.has(position))
-        .sort((left, right) => {
-          const rowDifference =
-            occupiedRows[Math.floor(left / columns)]! -
-            occupiedRows[Math.floor(right / columns)]!;
-          if (rowDifference) return rowDifference;
-          return (left - start + capacity) % capacity - (right - start + capacity) % capacity;
-        });
-      const remembered = positionsByMessageRef.current.get(message.id);
-      const position =
-        remembered !== undefined && !occupied.has(remembered)
-          ? remembered
-          : (available[0] ?? start);
-      positionsByMessageRef.current.set(message.id, position);
-      occupied.add(position);
-      return {
-        message,
-        position,
-        size: getWishSize(message),
-        phase: "entering",
-      };
-    };
-
-    nextMessageRef.current = Math.max(nextMessageRef.current, count);
-    setSlots((current) => {
-      if (!current.length) {
-        const occupied = new Set<number>();
-        return messages.slice(0, count).map((message) => createSlot(message, occupied));
-      }
-
-      const currentIds = new Set(messages.map((message) => message.id));
-      const retained: WishSlot[] = current
-        .filter((slot) => currentIds.has(slot.message.id))
-        .slice(0, count)
-        .map((slot) => ({
-          ...slot,
-          phase: "visible" as const,
-        }));
-      const visibleIds = new Set(retained.map((slot) => slot.message.id));
-      const occupied = new Set(retained.map((slot) => slot.position));
-      for (const message of messages) {
-        if (retained.length >= count) break;
-        if (visibleIds.has(message.id)) continue;
-        retained.push(createSlot(message, occupied));
-        visibleIds.add(message.id);
-      }
-      return retained;
+    const now = Date.now();
+    const resized = previousColumns.current !== layout.columns;
+    previousColumns.current = layout.columns;
+    if (resized) {
+      nextGroup.current = 0;
+      nextRotationAt.current = now + 3000;
+    }
+    const byId = new Map(messages.map((wish) => [wish.id, wish]));
+    const next = cardsRef.current.flatMap((card) => {
+      const wish = byId.get(card.wish.id);
+      return wish
+        ? [
+            {
+              ...card,
+              wish,
+            },
+          ]
+        : [];
     });
-
-    if (messages.length <= count) return;
-    let nextPosition = 0;
-
-    if (count < 1) return;
-    const timer = window.setInterval(() => {
-      const current = slotsRef.current;
-      if (!current.length) return;
-      const index = nextPosition++ % current.length;
-      let candidate = messages[nextMessageRef.current++ % messages.length]!;
-      while (current.some((slot) => slot.message.id === candidate.id)) {
-        candidate = messages[nextMessageRef.current++ % messages.length]!;
-      }
-      const position = current[index]!.position;
-      const exiting = current.map((slot, slotIndex) =>
-        slotIndex === index ? { ...slot, phase: "exiting" as const } : slot,
+    const occupied = new Set(next.map((card) => card.wish.id));
+    for (let position = 0; position < 6; position++) {
+      if (next.some((card) => card.position === position)) continue;
+      const wish = messages.find((candidate) => !occupied.has(candidate.id));
+      if (!wish) break;
+      occupied.add(wish.id);
+      seen.current.add(wish.id);
+      next.push({
+        wish,
+        position,
+        newUntil: arrivals.current.delete(wish.id) ? now + 9000 : 0,
+        cycleKey: ++generation.current,
+        exiting: false,
+        enteredAt: now,
+        floatDuration: 7500,
+      });
+    }
+    const changedGroups = new Set(
+      next
+        .filter(
+          (card) =>
+            resized ||
+            cardsRef.current.find((old) => old.position === card.position)?.wish
+              .id !== card.wish.id,
+        )
+        .map((card) => cardGroup(card.position, layout.columns)),
+    );
+    for (const card of next) {
+      const group = cardGroup(card.position, layout.columns);
+      if (!changedGroups.has(group)) continue;
+      card.cycleKey = ++generation.current;
+      card.exiting = false;
+      card.enteredAt = now;
+      card.floatDuration = Math.max(
+        1,
+        nextRotationAt.current -
+          now +
+          ((group - nextGroup.current + 3) % 3) * 3000 -
+          750,
       );
-      slotsRef.current = exiting;
-      setSlots(exiting);
+    }
+    // Apply edits and removals immediately, rather than waiting for the rotation timer.
+    commit(next.sort((a, b) => a.position - b.position));
+  }, [messages, layout.columns, commit]);
 
-      const phaseTimer = window.setTimeout(() => {
-        const occupiedPositions = new Set(
-          slotsRef.current
-            .filter((slot) => slot.position !== position)
-            .map((slot) => slot.position),
-        );
-        const nextSlot = createSlot(candidate, occupiedPositions);
-        const entering = slotsRef.current.map((slot) =>
-          slot.position === position
-            ? {
-                ...slot,
-                message: nextSlot.message,
-                position: nextSlot.position,
-                size: nextSlot.size,
-                phase: "entering" as const,
-              }
-            : slot,
-        );
-        slotsRef.current = entering;
-        setSlots(entering);
-
-        const visibleTimer = window.setTimeout(() => {
-          const visible = slotsRef.current.map((slot) =>
-            slot.position === nextSlot.position ? { ...slot, phase: "visible" as const } : slot,
+  useEffect(() => {
+    let transitionTimer: number | undefined;
+    nextRotationAt.current = Date.now() + 3000;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      nextRotationAt.current = now + 3000;
+      const next = cardsRef.current.map((card) => ({
+        ...card,
+        newUntil: card.newUntil <= now ? 0 : card.newUntil,
+      }));
+      const group = nextGroup.current;
+      nextGroup.current = (group + 1) % 3;
+      const leaving = next.filter(
+        (card) =>
+          cardGroup(card.position, layout.columns) === group &&
+          now - card.enteredAt >= 750,
+      );
+      if (leaving.length) {
+        // Aligned desktop cards move together, preserving their compact vertical gap.
+        const keys = new Set(leaving.map((card) => card.cycleKey));
+        for (const card of leaving) card.exiting = true;
+        transitionTimer = window.setTimeout(() => {
+          const current = cardsRef.current;
+          const finishing = current.filter(
+            (card) => keys.has(card.cycleKey) && card.exiting,
           );
-          slotsRef.current = visible;
-          setSlots(visible);
-        }, 1400);
-        swapTimersRef.current.push(visibleTimer);
-      }, 700);
-      swapTimersRef.current.push(phaseTimer);
-    }, 7500);
-
+          if (!finishing.length) return;
+          const occupied = new Set(current.map((card) => card.wish.id));
+          const candidates = latest.current.filter(
+            (wish) => !occupied.has(wish.id),
+          );
+          const fresh = candidates.filter((wish) =>
+            arrivals.current.has(wish.id),
+          );
+          const chosen = [
+            ...fresh,
+            ...selectNextWishes(
+              candidates.filter((wish) => !arrivals.current.has(wish.id)),
+              finishing.length - fresh.slice(0, finishing.length).length,
+              seen.current,
+              cursor.current % Math.max(candidates.length, 1),
+            ),
+          ].slice(0, finishing.length);
+          cursor.current += chosen.length;
+          let index = 0;
+          commit(
+            current.map((card) => {
+              if (!keys.has(card.cycleKey) || !card.exiting) return card;
+              const wish = chosen[index++] ?? card.wish;
+              seen.current.add(wish.id);
+              return {
+                ...card,
+                wish,
+                cycleKey: ++generation.current,
+                exiting: false,
+                enteredAt: Date.now(),
+                floatDuration: 7500,
+                newUntil: arrivals.current.delete(wish.id)
+                  ? Date.now() + 9000
+                  : wish.id === card.wish.id
+                    ? card.newUntil
+                    : 0,
+              };
+            }),
+          );
+        }, 750);
+      }
+      commit(next);
+    }, 3000);
     return () => {
       window.clearInterval(timer);
-      swapTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
-      swapTimersRef.current = [];
+      window.clearTimeout(transitionTimer);
     };
-  }, [columns, messages, targetCount]);
-
-  const gridStyle = {
-    "--wish-columns": columns,
-    "--wish-rows": 2,
-  } as CSSProperties;
+  }, [layout.columns, commit]);
 
   return (
-    <div className="wish-field" style={gridStyle} aria-live="polite">
-      {slots.map((slot, index) => {
-        const position = layout.get(slot.position);
-        if (!position) return null;
-        const isLong = slot.message.message.length > 130;
-        return (
-          <p
-            key={`${slot.position}-${slot.message.id}`}
-            className={`floating-wish floating-wish-${slot.size}${isLong ? " floating-wish-long" : ""} floating-wish-${slot.phase}`}
-            style={{
-              gridColumn: String(position.column + 1),
-              gridRow: String(position.row + 1),
-              animationDelay: `${(index % 4) * 0.25}s`,
-            }}
+    <div
+      className="wish-field"
+      style={
+        {
+          "--wish-columns": layout.columns,
+          "--wish-rows": layout.rows,
+        } as CSSProperties
+      }
+    >
+      {cards.map(
+        ({ wish, position, newUntil, cycleKey, exiting, floatDuration }) => (
+          <div
+            key={position}
+            className="wish-slot"
+            style={
+              {
+                gridColumn: (position % layout.columns) + 1,
+                gridRow: Math.floor(position / layout.columns) + 1,
+              } as CSSProperties
+            }
           >
-            <span className="floating-wish-message">{slot.message.message}</span>
-            {slot.message.name && (
-              <span className="floating-wish-author">— {slot.message.name}</span>
-            )}
-          </p>
-        );
-      })}
+            <article
+              key={`${wish.id}-${cycleKey}`}
+              className={`kanote-card${exiting ? " kanote-card-exiting" : ""}${newUntil ? " kanote-card-new" : ""}`}
+              data-wish-id={wish.id}
+              style={
+                { "--float-duration": `${floatDuration}ms` } as CSSProperties
+              }
+            >
+              {[0, 1, 2, 3].map((corner) => (
+                <Kanote key={corner} corner={corner} />
+              ))}
+              <WishCopy wish={wish} />
+              {newUntil > 0 && <span className="kanote-new-badge">✨ New</span>}
+            </article>
+          </div>
+        ),
+      )}
     </div>
   );
 }

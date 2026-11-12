@@ -5,13 +5,14 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { localLanternApi } from "./src/server/local-lantern-api";
+import { localApiPlugin } from "./src/server/local-api-plugin";
 
 export default defineConfig({
-  plugins: [localLanternApi()],
+  plugins: [localApiPlugin()],
   tanstackStart: {
     spa: {
       enabled: true,
+      prerender: { outputPath: "/index.html" },
     },
   },
 });

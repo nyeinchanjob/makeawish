@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "COSMOS_ENDPOINT": "https://your-cosmos-account.documents.azure.com:443/",
+    "COSMOS_KEY": "your-cosmos-primary-key",
+    "COSMOS_DATABASE": "makeawish-db",
+    "COSMOS_CONTAINER": "wishes",
+    "ADMIN_PIN": "2026",
+    "VITE_ADMIN_PIN": "2026"
+  }
+}

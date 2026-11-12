@@ -1,148 +1,148 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import seedRecords from "@/lib/mock-lanterns.json";
-import { lanternService, type Lantern } from "@/lib/lanterns";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  DISPLAY_CACHE_KEY,
+  lanternService,
+  normalizeEmail,
+  parseDisplayData,
+  useLanterns,
+  validateWish,
+} from "@/lib/lanterns";
 
-describe("lanternService API repository", () => {
-  let records: Lantern[];
+const data = {
+  wishes: [
+    {
+      id: "wish-1",
+      employee_name: "Aye",
+      plant: "CDC",
+      message: "Let hope shine",
+      created_on: "2026-11-10T00:00:00Z",
+    },
+  ],
+  counts: { HTY: 9, HB: 4, CDC: 132, JC: 2 },
+};
 
+describe("API lantern service and instant display cache", () => {
   beforeEach(() => {
-    records = seedRecords.map((record) => ({ ...record })) as Lantern[];
-    const stored = new Map<string, string>();
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: {
-        getItem: (key: string) => stored.get(key) ?? null,
-        setItem: (key: string, value: string) => stored.set(key, value),
-      },
-    });
-    let id = 0;
-    vi.stubGlobal(
-      "crypto",
-      Object.assign(Object.create(crypto), {
-        randomUUID: () => `request-key-${++id}`,
-      }),
-    );
+    localStorage.clear();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("renders cached wishes synchronously while a fresh request is unresolved", () => {
+    localStorage.setItem(DISPLAY_CACHE_KEY, JSON.stringify(data));
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
-        const path = String(input);
-        const method = init.method || "GET";
-        const body = init.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
-
-        if (path === "/api/lanterns" && method === "GET") {
-          return Response.json(records);
-        }
-        if (path === "/api/lanterns" && method === "POST") {
-          const created: Lantern = {
-            id: `message-${records.length}`,
-            name: String(body["name"]),
-            employeeId: String(body["employeeId"]),
-            message: String(body["message"]),
-            officeLocation: body["officeLocation"] as Lantern["officeLocation"],
-            status: "pending",
-            createdAt: new Date().toISOString(),
-          };
-          records = [...records, created];
-          return Response.json(created, { status: 201 });
-        }
-        if (path.endsWith("/status") && method === "PATCH") {
-          const id = decodeURIComponent(path.split("/").at(-2) || "");
-          const record = records.find((item) => item.id === id);
-          if (!record)
-            return Response.json({ error: "Festival message was not found." }, { status: 404 });
-          const updated = { ...record, status: body["status"] as Lantern["status"] };
-          records = records.map((item) => (item.id === id ? updated : item));
-          return Response.json(updated);
-        }
-        if (path === "/api/lanterns/export") return Response.json(records);
-        return Response.json({ error: "Not found." }, { status: 404 });
-      }),
+      vi.fn(() => new Promise(() => {})),
     );
+    const { result } = renderHook(() => useLanterns());
+    expect(result.current.lanterns[0]?.message).toBe("Let hope shine");
+    expect(result.current.counts.CDC).toBe(132);
   });
 
-  it("loads the JSON-backed records and appends submissions with office locations", async () => {
-    const initial = await lanternService.getAll();
-    const first = await lanternService.submit({
-      name: "Aung Aung",
-      employeeId: "EMP-1024",
-      message: "ပျော်ရွှင်သော တန်ဆောင်တိုင် ဖြစ်ပါစေ",
-      officeLocation: "HTY",
+  it("refreshes every 5 seconds and caches fresh counts rather than the limited wish count", async () => {
+    vi.useFakeTimers();
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(data)));
+    vi.stubGlobal("fetch", fetcher);
+    const { result } = renderHook(() => useLanterns());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
     });
-    const second = await lanternService.submit({
-      name: "Su Su",
-      employeeId: "EMP-2048",
-      message: "A second wish",
-      officeLocation: "HmweBe",
+    expect(result.current.counts.CDC).toBe(132);
+    expect(JSON.parse(localStorage.getItem(DISPLAY_CACHE_KEY)!)).toEqual(data);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
     });
-    const persisted = await lanternService.getAll();
-
-    expect(initial).toEqual(seedRecords);
-    expect(first).toMatchObject({
-      id: `message-${initial.length}`,
-      name: "Aung Aung",
-      employeeId: "EMP-1024",
-      message: "ပျော်ရွှင်သော တန်ဆောင်တိုင် ဖြစ်ပါစေ",
-      officeLocation: "HTY",
-      status: "pending",
-      createdAt: expect.any(String),
-    });
-    expect(Number.isNaN(Date.parse(first.createdAt))).toBe(false);
-    expect(persisted).toHaveLength(initial.length + 2);
-    expect(persisted.slice(-2)).toEqual([first, second]);
-    expect(fetch).toHaveBeenCalledWith(
-      "/api/lanterns",
-      expect.objectContaining({ method: "POST" }),
-    );
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it("updates approval and exports the same shared records", async () => {
-    const [record] = await lanternService.getAll();
-    if (!record) throw new Error("Expected seeded festival message.");
-
-    await expect(lanternService.setStatus(record.id, "rejected")).resolves.toMatchObject({
-      id: record.id,
-      status: "rejected",
-    });
-    const exported = await lanternService.exportAll();
-    expect(exported).toHaveLength(records.length);
-    expect(records[0]?.status).toBe("rejected");
-  });
-
-  it("surfaces API errors instead of showing an unsaved submission as successful", async () => {
+  it("keeps stale data visible on errors and surfaces the failed refresh", async () => {
+    localStorage.setItem(DISPLAY_CACHE_KEY, JSON.stringify(data));
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          Response.json({ error: "The lantern data could not be read or saved." }, { status: 500 }),
-        ),
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "Database unavailable" }), {
+          status: 503,
+        }),
+      ),
     );
-
-    await expect(
-      lanternService.submit({
-        name: "Visitor",
-        employeeId: "EMP-1",
-        message: "A wish",
-        officeLocation: "CDC",
-      }),
-    ).rejects.toThrow("The lantern data could not be read or saved.");
+    const { result } = renderHook(() => useLanterns());
+    await waitFor(() =>
+      expect(result.current.error).toBe("Database unavailable"),
+    );
+    expect(result.current.lanterns).toHaveLength(1);
   });
 
-  it("reports the status when the API returns a non-JSON error", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Not found", { status: 404 })));
-
-    await expect(lanternService.getAll()).rejects.toThrow("The request failed (404).");
+  it("never persists email or private fields in the public cache", () => {
+    expect(
+      parseDisplayData({
+        ...data,
+        wishes: [
+          {
+            ...data.wishes[0],
+            email: "private@example.com",
+            status: "approved",
+          },
+        ],
+      }),
+    ).toEqual(data);
   });
 
-  it("does not send a submission without an employee ID", async () => {
+  it("sends a normalized company email and propagates save failures", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: "Save failed" }), { status: 503 }),
+      );
+    vi.stubGlobal("fetch", fetcher);
     await expect(
       lanternService.submit({
-        name: "Visitor",
-        employeeId: "   ",
-        message: "A wish",
-        officeLocation: "CDC",
+        employee_name: " Aye ",
+        email: "AYE@COCA-COLA.COM.MM",
+        plant: "HB",
+        message: " Let hope shine ",
       }),
-    ).rejects.toThrow("Please enter your employee ID.");
-    expect(fetch).not.toHaveBeenCalled();
+    ).rejects.toThrow("Save failed");
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({
+      employee_name: "Aye",
+      email: "aye@coca-cola.com.mm",
+      plant: "HB",
+      message: "Let hope shine",
+    });
+  });
+
+  it("normalizes either email form and rejects foreign or doubled domains", () => {
+    expect(normalizeEmail(" AYE ")).toBe("aye@coca-cola.com.mm");
+    expect(normalizeEmail("Aye@coca-cola.com.mm")).toBe("aye@coca-cola.com.mm");
+    expect(() => normalizeEmail("aye@gmail.com")).toThrow("@coca-cola.com.mm");
+    expect(() =>
+      normalizeEmail("aye@coca-cola.com.mm@coca-cola.com.mm"),
+    ).toThrow();
+  });
+
+  it.each([
+    "",
+    "ab",
+    "a \n b",
+    "aaaaaa",
+    "ha ha ha ha",
+    "!!!!!!!!",
+    "a".repeat(151),
+  ])("rejects spam or invalid wish %s", (message) => {
+    expect(validateWish(message)).not.toBeNull();
+  });
+
+  it("accepts meaningful Burmese and long wishes with no character maximum", () => {
+    expect(validateWish("ပျော်ရွှင်ပါစေ")).toBeNull();
+    const message = "May we shine together with hope and kindness! ".repeat(
+      1000,
+    );
+    expect(message.length).toBeGreaterThan(16_384);
+    expect(validateWish(message)).toBeNull();
+    expect(validateWish("a \n b \t c")).toBeNull();
   });
 });
