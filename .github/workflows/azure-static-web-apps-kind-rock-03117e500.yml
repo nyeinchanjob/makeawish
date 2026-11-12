@@ -39,7 +39,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_KIND_ROCK_03117E500 }}
           action: "upload"
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
+          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms
           app_location: "/" # App source code path
           api_location: "" # Api source code path - optional
           output_location: "build" # Built app content directory - optional
