@@ -51,8 +51,9 @@ One to four wishes form a centered cluster with matching columns; five to eight 
 into three or four vertically centered desktop columns. Nine or more use the full
 four-column independent flex masonry wall. Phones/tablets use one or two columns.
 The full-width upper sky stage
-runs from 2.5% to 78% of the screen with 3% side margins and 16px gaps. Only column four
-has a 210px top spacer to clear the artwork; the other columns have modest top spacing.
+runs from 2.5% to 78% of the screen with 3% side margins and 16px gaps (20px on
+large screens). Only column four has a `clamp(11rem, 19vh, 16rem)` top spacer
+to clear the artwork; the other columns have modest top spacing.
 Initial and incoming wishes balance estimated/measured column heights, then stay locked
 to their assigned column through edits, font loading, moderation and rotations.
 Only a responsive or wish-count-driven column-count change redistributes cards.
@@ -63,8 +64,11 @@ cross-column reflow. When fewer than fourteen approved wishes exist, only those 
 are shown, without duplicates. New arrivals take priority in the next
 rotation and briefly glow with a `✨ New` badge.
 When all wishes are already visible, cards remain mounted: no repeated frames or
-duplicates are generated to fill slots. Cards have aligned widths up to 380px, compact
-20px corner ornaments, and natural content height. Long messages use a smaller font,
+duplicates are generated to fill slots. Cards fill their column width; only centered
+and expanded clusters retain the compact 380px-per-column layout. Card padding,
+corner ornaments and footer metadata scale fluidly with the viewport. Messages use
+`clamp(0.95rem, 1.15vw, 1.65rem)` typography, with messages over 600 characters using
+the smaller `clamp(0.85rem, 1vw, 1.4rem)` size. Cards have natural content height,
 with no height cap, truncation or inner scrollbars. The whole wall scrolls if full
 messages exceed the safe sky area.
 Wishes have no application length cap, but Cosmos DB's **2 MB document limit**

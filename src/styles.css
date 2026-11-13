@@ -435,6 +435,7 @@
   max-width: none;
 }
 .wish-field {
+  --wish-gap: 16px;
   position: absolute;
   inset: 0;
   display: flex;
@@ -448,7 +449,7 @@
   display: grid;
   grid-template-columns: repeat(var(--wish-columns), minmax(0, 1fr));
   align-items: start;
-  gap: 16px;
+  gap: var(--wish-gap);
   padding: 4px 4px 34px;
   width: 100%;
   flex-shrink: 0;
@@ -458,7 +459,10 @@
 .wish-field-expanded .wish-masonry {
   width: min(
     100%,
-    calc(var(--wish-columns) * 380px + (var(--wish-columns) - 1) * 16px + 8px)
+    calc(
+      var(--wish-columns) * 380px + (var(--wish-columns) - 1) *
+        var(--wish-gap) + 8px
+    )
   );
   align-self: center;
   align-items: center;
@@ -473,8 +477,8 @@
 .wish-column {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: stretch;
+  gap: var(--wish-gap);
   min-width: 0;
   padding-top: 24px;
 }
@@ -482,11 +486,18 @@
   padding-top: 48px;
 }
 .wish-column:nth-child(4) {
-  padding-top: 210px;
+  margin-top: clamp(11rem, 19vh, 16rem);
+  padding-top: 0;
 }
 .wish-field-centered .wish-column,
 .wish-field-expanded .wish-column {
+  margin-top: 0;
   padding-top: 0;
+}
+@media (min-width: 1024px) {
+  .wish-field {
+    --wish-gap: 20px;
+  }
 }
 .wish-slot {
   width: 100%;
@@ -702,12 +713,12 @@
   color: #fed7aa;
 }
 .kanote-card {
-  --card-padding: 18px;
+  --card-padding: clamp(0.85rem, 1.2vw, 1.75rem);
   position: relative;
-  width: min(380px, 100%);
+  width: 100%;
   height: fit-content;
-  min-width: 210px;
-  max-width: min(380px, 100%);
+  min-width: 0;
+  max-width: none;
   padding: var(--card-padding);
   border: 1px solid #f5d076;
   border-radius: 16px;
@@ -737,11 +748,14 @@
 .kanote-message {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  font-size: calc(clamp(0.875rem, 1.1vw, 1.125rem) * var(--message-scale, 1));
+  font-size: clamp(0.95rem, 1.15vw, 1.65rem);
   line-height: 1.65;
   font-family: "TCCC Unity Text", sans-serif;
   color: #ffffff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.kanote-message-long {
+  font-size: clamp(0.85rem, 1vw, 1.4rem);
 }
 .kanote-copy {
   display: grid;
@@ -768,12 +782,13 @@
 }
 .kanote {
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: clamp(1.25rem, 1.6vw, 2.25rem);
+  height: clamp(1.25rem, 1.6vw, 2.25rem);
   color: #f5d076;
   pointer-events: none;
 }
 .kanote-sender {
+  font-size: clamp(0.75rem, 0.85vw, 1.15rem);
   color: #fde68a;
 }
 .kanote-0 {
@@ -870,14 +885,8 @@
   .display-count-label {
     letter-spacing: 0.08em;
   }
-  .kanote-card {
-    --card-padding: 14px;
-  }
   .kanote-copy {
     gap: 6px;
-  }
-  .kanote-sender {
-    font-size: 10px;
   }
   .floating-wish {
     font-size: clamp(0.9rem, 3vw, 1.15rem);
@@ -899,9 +908,6 @@
   }
   .kanote-copy {
     gap: 2px;
-  }
-  .kanote-sender {
-    font-size: 9px;
   }
 }
 
@@ -951,9 +957,6 @@
   }
   .kanote-copy {
     gap: 4px;
-  }
-  .kanote-sender {
-    font-size: 10px;
   }
   .display-qr-section {
     gap: 2px;

@@ -179,6 +179,23 @@ describe("locked masonry card scheduling", () => {
     expect(screen.getAllByRole("article")).toHaveLength(9);
   });
 
+  it("uses smaller fluid typography only for very long messages and updates it after edits", () => {
+    const message = "a".repeat(600);
+    const { rerender } = render(
+      <FloatingWishes messages={[{ ...wish("long"), message }]} />,
+    );
+    const copy = screen.getByText(message);
+    expect(copy).not.toHaveClass("kanote-message-long");
+    rerender(
+      <FloatingWishes
+        messages={[{ ...wish("long"), message: `${message}a` }]}
+      />,
+    );
+    expect(copy).toHaveClass("kanote-message-long");
+    rerender(<FloatingWishes messages={[wish("long")]} />);
+    expect(copy).not.toHaveClass("kanote-message-long");
+  });
+
   it("applies moderation removals immediately and never resurrects an item removed during its exit", () => {
     const messages = wishes();
     const { rerender } = render(<FloatingWishes messages={messages} />);

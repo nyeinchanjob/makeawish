@@ -98,21 +98,13 @@ function estimatedHeight(wish: Lantern) {
 
 function WishCopy({ wish }: { wish: Lantern }) {
   return (
-    <div
-      className="kanote-copy"
-      style={
-        {
-          "--message-scale":
-            wish.message.length > 600
-              ? 0.8
-              : wish.message.length > 200
-                ? 0.9
-                : 1,
-        } as CSSProperties
-      }
-    >
-      <p className="kanote-message">{wish.message}</p>
-      <footer className="kanote-sender flex items-center justify-between gap-2 text-xs">
+    <div className="kanote-copy">
+      <p
+        className={`kanote-message${wish.message.length > 600 ? " kanote-message-long" : ""}`}
+      >
+        {wish.message}
+      </p>
+      <footer className="kanote-sender flex items-center justify-between gap-2">
         <span className="min-w-0 truncate">— {wish.name}</span>
         <span className="shrink-0 rounded-full border border-current/50 px-2 py-0.5">
           {wish.officeLocation}
