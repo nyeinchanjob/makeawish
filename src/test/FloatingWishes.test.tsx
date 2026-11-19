@@ -24,11 +24,25 @@ const wishes = (count = 18) =>
 const columnFor = (node: HTMLElement) =>
   node.closest<HTMLDivElement>(".wish-column");
 const idOf = (node: HTMLElement) => node.getAttribute("data-wish-id");
+const bounds = HTMLElement.prototype.getBoundingClientRect;
 
 describe("locked masonry card scheduling", () => {
   beforeEach(() => {
     vi.stubGlobal("innerWidth", 1920);
     vi.useFakeTimers();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        const rect = bounds.call(this);
+        return {
+          ...rect,
+          height: this.classList.contains("wish-column")
+            ? 3000
+            : this.parentElement?.classList.contains("wish-measurements")
+              ? 92
+              : rect.height,
+        };
+      },
+    );
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -36,13 +50,13 @@ describe("locked masonry card scheduling", () => {
     vi.restoreAllMocks();
   });
 
-  it("balances initial stacks while populating all four columns and preserving the artwork spacer", () => {
+  it("balances initial stacks while populating all three columns", () => {
     expect(
-      distributeMasonryCards([260, 80, 80, 80, 80, 80, 80, 80], 4),
-    ).toEqual([0, 1, 2, 3, 2, 1, 2, 1]);
+      distributeMasonryCards([260, 80, 80, 80, 80, 80, 80, 80], 3),
+    ).toEqual([0, 1, 2, 2, 1, 2, 1, 0]);
     expect(distributeMasonryCards([260, 80, 80, 80], 2)).toEqual([0, 1, 1, 1]);
     render(<FloatingWishes messages={wishes()} />);
-    expect(screen.getAllByRole("article")).toHaveLength(14);
+    expect(screen.getAllByRole("article")).toHaveLength(15);
     for (const column of screen.getAllByRole("region", {
       name: /Wish column/,
     })) {
@@ -71,8 +85,8 @@ describe("locked masonry card scheduling", () => {
     }
     const nextStack = within(firstColumn).getAllByRole("article");
     expect(nextStack.slice(0, -1)).toEqual(firstStack.slice(1));
-    expect(idOf(nextStack.at(-1)!)).toBe("14");
-    expect(screen.getAllByRole("article")).toHaveLength(14);
+    expect(idOf(nextStack.at(-1)!)).toBe("15");
+    expect(screen.getAllByRole("article")).toHaveLength(15);
   });
 
   it("glides surviving items vertically in only the affected column for 700ms", () => {
@@ -184,7 +198,7 @@ describe("locked masonry card scheduling", () => {
     const { rerender } = render(
       <FloatingWishes messages={[{ ...wish("long"), message }]} />,
     );
-    const copy = screen.getByText(message);
+    const copy = within(screen.getByRole("article")).getByText(message);
     expect(copy).not.toHaveClass("kanote-message-long");
     rerender(
       <FloatingWishes
@@ -214,13 +228,13 @@ describe("locked masonry card scheduling", () => {
       expect(card).toBeInTheDocument();
       expect(columnFor(card)).toBe(columns[index + 1]);
     });
-    expect(screen.getAllByRole("article")).toHaveLength(14);
+    expect(screen.getAllByRole("article")).toHaveLength(15);
     rerender(<FloatingWishes messages={[]} />);
     act(() => vi.advanceTimersByTime(5000));
     expect(screen.queryAllByRole("article")).toHaveLength(0);
   });
 
-  it.each([1, 4, 8, 14])(
+  it.each([1, 4, 8, 15])(
     "never replays or duplicates wishes when all %i approved wishes are visible",
     (count) => {
       const messages = wishes(count);
@@ -246,12 +260,12 @@ describe("locked masonry card scheduling", () => {
   );
 
   it("cancels an in-flight exit if moderation removes the only off-screen replacement", () => {
-    const messages = wishes(15);
+    const messages = wishes(16);
     const { rerender } = render(<FloatingWishes messages={messages} />);
     const cards = screen.getAllByRole("article");
     act(() => vi.advanceTimersByTime(3000));
     expect(cards[0]).toHaveClass("kanote-card-exiting");
-    rerender(<FloatingWishes messages={messages.slice(0, 14)} />);
+    rerender(<FloatingWishes messages={messages.slice(0, 15)} />);
     act(() => vi.advanceTimersByTime(10000));
     expect(screen.getAllByRole("article")).toEqual(cards);
     expect(
@@ -262,12 +276,12 @@ describe("locked masonry card scheduling", () => {
   it.each([
     [1, 1, "centered"],
     [2, 2, "centered"],
-    [4, 4, "centered"],
+    [4, 3, "centered"],
     [5, 3, "expanded"],
     [6, 3, "expanded"],
-    [8, 4, "expanded"],
-    [9, 4, "full"],
-    [18, 4, "full"],
+    [8, 3, "expanded"],
+    [9, 3, "full"],
+    [18, 3, "full"],
   ] as const)(
     "adapts %i wishes to %i columns in the %s stage",
     (count, columns, mode) => {
@@ -278,7 +292,7 @@ describe("locked masonry card scheduling", () => {
       expect(
         container.querySelector(`.wish-field-${mode}`),
       ).toBeInTheDocument();
-      expect(screen.getAllByRole("article")).toHaveLength(Math.min(count, 14));
+      expect(screen.getAllByRole("article")).toHaveLength(Math.min(count, 15));
     },
   );
 
@@ -314,7 +328,7 @@ describe("locked masonry card scheduling", () => {
     expect(within(column).getAllByRole("article")).toHaveLength(8);
     expect(getWishLayout(390)).toEqual({
       columns: 1,
-      capacity: 14,
+      capacity: 15,
       mode: "full",
     });
   });
@@ -328,5 +342,106 @@ describe("locked masonry card scheduling", () => {
         1,
       ).map((item) => item.id),
     ).toEqual(["new", "old"]);
+  });
+
+  it("fits whole measured cards including gaps and reserved space, then refits on resize and font changes", () => {
+    let resized = () => {};
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          resized = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    let columnHeight = 400;
+    let cardHeight = 100;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        const rect = bounds.call(this);
+        return {
+          ...rect,
+          height: this.classList.contains("wish-column")
+            ? columnHeight
+            : this.parentElement?.classList.contains("wish-measurements")
+              ? cardHeight
+              : rect.height,
+        };
+      },
+    );
+    render(<FloatingWishes messages={wishes()} />);
+    const columns = screen.getAllByRole("region", { name: /Wish column/ });
+    columns.forEach((column, index) => {
+      column.style.rowGap = "16px";
+      column.style.paddingTop = "36px";
+      column.style.paddingBottom = index === 3 ? "148px" : "32px";
+    });
+    act(() => resized());
+    const sizes = () =>
+      columns.map((column) => within(column).queryAllByRole("article").length);
+    expect(sizes()).toEqual([3, 3, 3]);
+    columnHeight = 399;
+    act(() => resized());
+    expect(sizes()).toEqual([2, 2, 2]);
+    columnHeight = 500;
+    act(() => resized());
+    expect(sizes()).toEqual([3, 3, 3]);
+    cardHeight = 180;
+    act(() => resized());
+    expect(sizes()).toEqual([2, 2, 2]);
+    cardHeight = 600;
+    act(() => resized());
+    expect(screen.queryAllByRole("article")).toHaveLength(0);
+  });
+
+  it("rotates off-screen wishes even below fifteen when the measured columns are full", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        return {
+          ...bounds.call(this),
+          height: this.classList.contains("wish-column") ? 100 : 92,
+        };
+      },
+    );
+    render(<FloatingWishes messages={wishes(8)} />);
+    const cards = screen.getAllByRole("article");
+    expect(cards).toHaveLength(3);
+    act(() => vi.advanceTimersByTime(3750));
+    expect(cards[0]).not.toBeInTheDocument();
+    expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(new Set(screen.getAllByRole("article").map(idOf)).size).toBe(3);
+  });
+
+  it("does not fade out fitting cards when the only off-screen wish is too tall to replace them", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        return {
+          ...bounds.call(this),
+          height: this.classList.contains("wish-column")
+            ? 100
+            : this.textContent?.includes("Oversized wish")
+              ? 200
+              : 92,
+        };
+      },
+    );
+    render(
+      <FloatingWishes
+        messages={[
+          ...wishes(3),
+          ...Array.from({ length: 4 }, (_, index) => ({
+            ...wish(`oversized-${index}`),
+            message: "Oversized wish",
+          })),
+        ]}
+      />,
+    );
+    const cards = screen.getAllByRole("article");
+    expect(cards).toHaveLength(3);
+    act(() => vi.advanceTimersByTime(60000));
+    expect(screen.getAllByRole("article")).toEqual(cards);
+    expect(document.querySelector(".kanote-card-exiting")).toBeNull();
   });
 });

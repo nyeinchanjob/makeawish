@@ -46,21 +46,24 @@ guarantee literal zero-millisecond browser rendering or the first visit's load t
 Do not use the former browser-only demo records as event data; they are not uploaded.
 
 The clean display has no title stack or demo banner, leaving the official background
-visible. Only unique approved wishes are shown, up to fourteen at once.
-One to four wishes form a centered cluster with matching columns; five to eight expand
-into three or four vertically centered desktop columns. Nine or more use the full
-four-column independent flex masonry wall. Phones/tablets use one or two columns.
-The full-width upper sky stage
-runs from 2.5% to 78% of the screen with 3% side margins and 16px gaps (20px on
-large screens). Only column four has a `clamp(11rem, 19vh, 16rem)` top spacer
-to clear the artwork; the other columns have modest top spacing.
-Initial and incoming wishes balance estimated/measured column heights, then stay locked
-to their assigned column through edits, font loading, moderation and rotations.
-Only a responsive or wish-count-driven column-count change redistributes cards.
-When more than fourteen unique wishes are available, every three seconds one column's
+visible. Only unique approved wishes are shown, up to fifteen at once.
+One to four wishes form a centered cluster with matching columns; five or more
+expand into the three-column independent flex masonry wall on desktop.
+Phones/tablets use one or two columns.
+The desktop wish stage spans from 3% to 29% from the left edge and from 2.5% to
+96% vertically, leaving the right 28% open for the artwork, moon and widget.
+Columns have 16px gaps (20px on large screens) and show at most five cards each.
+The lantern counter and plant breakdown remain beside the QR code in the
+bottom-right bar, 2.5% from both edges. On phones/tablets, all columns end above
+the bar.
+Initial and incoming wishes balance estimated/measured column heights. Cards that
+still fit stay locked to their column through edits, font loading, moderation and rotations.
+A responsive or wish-count-driven column-count change redistributes the wall;
+fit checks remove or relocate only cards that no longer fit.
+When more wishes are available than fit, every three seconds one column's
 top card fades upward and out; a different, off-screen wish enters
 at the bottom of that same column. Remaining items glide vertically for 700ms, without
-cross-column reflow. When fewer than fourteen approved wishes exist, only those available
+cross-column reflow. When fewer than fifteen approved wishes exist, only those available
 are shown, without duplicates. New arrivals take priority in the next
 rotation and briefly glow with a `✨ New` badge.
 When all wishes are already visible, cards remain mounted: no repeated frames or
@@ -69,8 +72,10 @@ and expanded clusters retain the compact 380px-per-column layout. Card padding,
 corner ornaments and footer metadata scale fluidly with the viewport. Messages use
 `clamp(0.95rem, 1.15vw, 1.65rem)` typography, with messages over 600 characters using
 the smaller `clamp(0.85rem, 1vw, 1.4rem)` size. Cards have natural content height,
-with no height cap, truncation or inner scrollbars. The whole wall scrolls if full
-messages exceed the safe sky area.
+with no height cap, truncation or inner scrollbars. Only whole cards that fit inside
+each column are displayed, using measured content heights and gaps rather than
+estimates. Resizing, font loading and edits trigger a fit check before painting;
+wishes too tall for any column remain off-screen rather than being clipped.
 Wishes have no application length cap, but Cosmos DB's **2 MB document limit**
 and hosting/browser-storage limits still apply. Cosmos size failures return HTTP 413.
 

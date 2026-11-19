@@ -11,10 +11,10 @@ import type { Lantern } from "@/lib/lanterns";
 
 export function getWishLayout(width: number, count = 14) {
   const mode = count <= 4 ? "centered" : count <= 8 ? "expanded" : "full";
-  const desiredColumns = count <= 4 ? Math.max(1, count) : count <= 6 ? 3 : 4;
+  const desiredColumns = count <= 4 ? Math.max(1, count) : 3;
   return {
-    columns: Math.min(width < 600 ? 1 : width < 1100 ? 2 : 4, desiredColumns),
-    capacity: 14,
+    columns: Math.min(width < 600 ? 1 : width < 1100 ? 2 : 3, desiredColumns),
+    capacity: 15,
     mode,
   };
 }
@@ -25,13 +25,7 @@ export function distributeMasonryCards(
   fullStage = true,
 ) {
   const bottoms: number[] = Array.from({ length: columns }, (_, column) =>
-    fullStage
-      ? columns === 4 && column === 3
-        ? 210
-        : column === 1
-          ? 48
-          : 24
-      : 0,
+    fullStage ? (column === 1 ? 48 : 24) : 0,
   );
   return heights.map((height, index) => {
     const column =
@@ -96,6 +90,19 @@ function estimatedHeight(wish: Lantern) {
   return 66 + lines * 26;
 }
 
+function measureWishColumn(element: HTMLDivElement) {
+  const style = getComputedStyle(element);
+  return {
+    gap: Number.parseFloat(style.rowGap) || 0,
+    height: Math.max(
+      0,
+      element.getBoundingClientRect().height -
+        (Number.parseFloat(style.paddingTop) || 0) -
+        (Number.parseFloat(style.paddingBottom) || 0),
+    ),
+  };
+}
+
 function WishCopy({ wish }: { wish: Lantern }) {
   return (
     <div className="kanote-copy">
@@ -132,6 +139,8 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
   const [cards, setCards] = useState<Card[]>([]);
   const cardsRef = useRef<Card[]>([]);
   const slots = useRef(new Map<number, HTMLDivElement>());
+  const columns = useRef(new Map<number, HTMLDivElement>());
+  const measurements = useRef(new Map<string, HTMLDivElement>());
   const offsets = useRef(new Map<number, { top: number; column: number }>());
   const latest = useRef<Lantern[]>([]);
   const known = useRef<Set<string> | null>(null);
@@ -148,6 +157,9 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
 
   useEffect(() => {
     const resize = () => {
+      offsets.current.clear();
+      for (const slot of slots.current.values())
+        slot.getAnimations?.().forEach((animation) => animation.cancel());
       setWidth(window.innerWidth);
     };
     window.addEventListener("resize", resize);
@@ -170,10 +182,24 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
         !reducedMotion &&
         typeof slot.animate === "function"
       ) {
+        const column = columns.current.get(card.column)!;
+        const contentTop =
+          column.offsetTop +
+          (Number.parseFloat(getComputedStyle(column).paddingTop) || 0);
+        const delta = Math.max(
+          contentTop - top,
+          Math.min(
+            previous.top - top,
+            contentTop +
+              measureWishColumn(column).height -
+              top -
+              slot.offsetHeight,
+          ),
+        );
         // FLIP moves only the layout wrapper; the inner full-card float remains independent.
         slot.animate(
           [
-            { transform: `translateY(${previous.top - top}px)` },
+            { transform: `translateY(${delta}px)` },
             { transform: "translateY(0)" },
           ],
           { duration: 700, easing: "ease-in-out" },
@@ -185,12 +211,71 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
   }, []);
 
   useLayoutEffect(() => {
-    glide();
+    const fit = () => {
+      const { gap } = measureWishColumn(columns.current.get(0)!);
+      const available = Array.from(
+        { length: layout.columns },
+        (_, column) => measureWishColumn(columns.current.get(column)!).height,
+      );
+      const used = available.map(() => 0);
+      const counts = available.map(() => 0);
+      const heightOf = (wish: Lantern) =>
+        measurements.current.get(wish.id)?.getBoundingClientRect().height ?? 0;
+      const fits = (height: number, column: number) =>
+        height > 0 &&
+        (layout.columns !== 3 || counts[column]! < 5) &&
+        used[column]! + (counts[column] ? gap : 0) + height <=
+          available[column]!;
+      const occupy = (height: number, column: number) => {
+        used[column] = used[column]! + (counts[column] ? gap : 0) + height;
+        counts[column] = counts[column]! + 1;
+      };
+      const next = cardsRef.current.filter((card) => {
+        const height = heightOf(card.wish);
+        if (!fits(height, card.column)) return false;
+        occupy(height, card.column);
+        return true;
+      });
+      const occupied = new Set(next.map((card) => card.wish.id));
+      for (const wish of latest.current) {
+        if (next.length >= layout.capacity) break;
+        if (occupied.has(wish.id)) continue;
+        const height = heightOf(wish);
+        const column = available
+          .map((_, index) => index)
+          .filter((index) => fits(height, index))
+          .sort((a, b) => used[a]! - used[b]!)[0];
+        if (column === undefined) continue;
+        next.push({
+          wish,
+          column,
+          cycleKey: ++generation.current,
+          exiting: false,
+          enteredAt: Date.now(),
+          floatDuration: (counts[column]! + 1) * layout.columns * 3000 - 750,
+          newUntil: arrivals.current.delete(wish.id) ? Date.now() + 9000 : 0,
+        });
+        occupy(height, column);
+        occupied.add(wish.id);
+        seen.current.add(wish.id);
+      }
+      if (
+        next.length !== cardsRef.current.length ||
+        next.some((card, index) => card !== cardsRef.current[index])
+      ) {
+        commit(next);
+      } else {
+        glide();
+      }
+    };
+    fit();
     if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(glide);
-    for (const slot of slots.current.values()) observer.observe(slot);
+    const observer = new ResizeObserver(fit);
+    for (const column of columns.current.values()) observer.observe(column);
+    for (const measurement of measurements.current.values())
+      observer.observe(measurement);
     return () => observer.disconnect();
-  }, [cards, glide, layout.columns, layout.mode]);
+  }, [cards, glide, commit, layout.columns, layout.capacity, layout.mode]);
 
   useEffect(() => {
     latest.current = approvedWishes;
@@ -215,7 +300,9 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
               ...card,
               wish,
               exiting:
-                approvedWishes.length <= layout.capacity ? false : card.exiting,
+                approvedWishes.length <= cardsRef.current.length
+                  ? false
+                  : card.exiting,
             },
           ]
         : [];
@@ -292,6 +379,29 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
 
   useEffect(() => {
     let transitionTimer: number | undefined;
+    const candidatesFor = (current: Card[], leaving: Card) => {
+      const element = columns.current.get(leaving.column);
+      if (!element) return [];
+      const { height, gap } = measureWishColumn(element);
+      const heightOf = (wish: Lantern) =>
+        measurements.current.get(wish.id)?.getBoundingClientRect().height ?? 0;
+      const used = current
+        .filter(
+          (card) =>
+            card.column === leaving.column &&
+            card.cycleKey !== leaving.cycleKey,
+        )
+        .reduce((sum, card) => sum + heightOf(card.wish) + gap, 0);
+      const occupied = new Set(current.map((card) => card.wish.id));
+      return latest.current.filter((wish) => {
+        const cardHeight = heightOf(wish);
+        return (
+          !occupied.has(wish.id) &&
+          cardHeight > 0 &&
+          used + cardHeight <= height
+        );
+      });
+    };
     const timer = window.setInterval(() => {
       const now = Date.now();
       const next = cardsRef.current.map((card) => ({
@@ -301,10 +411,7 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
       const column = nextColumn.current;
       nextColumn.current = (column + 1) % layout.columns;
       const leaving = next.find((card) => card.column === column);
-      const occupied = new Set(next.map((card) => card.wish.id));
-      const hasReplacement = latest.current.some(
-        (wish) => !occupied.has(wish.id),
-      );
+      const hasReplacement = leaving && candidatesFor(next, leaving).length > 0;
       if (leaving && hasReplacement && now - leaving.enteredAt >= 750) {
         leaving.exiting = true;
         const key = leaving.cycleKey;
@@ -314,10 +421,7 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
             (card) => card.cycleKey === key && card.exiting,
           );
           if (!exiting) return;
-          const occupied = new Set(current.map((card) => card.wish.id));
-          const candidates = latest.current.filter(
-            (wish) => !occupied.has(wish.id),
-          );
+          const candidates = candidatesFor(current, exiting);
           const wish =
             candidates.find((candidate) =>
               arrivals.current.has(candidate.id),
@@ -371,8 +475,7 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
     <div
       className={`wish-field wish-field-${layout.mode}`}
       role="region"
-      aria-label="Scrollable festival wish wall"
-      tabIndex={0}
+      aria-label="Live festival wish wall"
       style={{ "--wish-columns": layout.columns } as CSSProperties}
     >
       <div className="wish-masonry">
@@ -380,6 +483,10 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
           <div
             className="wish-column"
             key={column}
+            ref={(element) => {
+              if (element) columns.current.set(column, element);
+              else columns.current.delete(column);
+            }}
             role="region"
             aria-label={`Wish column ${column + 1}`}
           >
@@ -415,6 +522,20 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
               ))}
           </div>
         ))}
+        <div className="wish-measurements" aria-hidden="true">
+          {approvedWishes.map((wish) => (
+            <div
+              key={wish.id}
+              className="kanote-card"
+              ref={(element) => {
+                if (element) measurements.current.set(wish.id, element);
+                else measurements.current.delete(wish.id);
+              }}
+            >
+              <WishCopy wish={wish} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
