@@ -36,7 +36,7 @@ export interface Lantern {
 
 export const DISPLAY_CACHE_KEY = "share-light.display.v1";
 const CHANGE_EVENT = "share-light:update";
-const emptyCounts = (): PlantCounts => ({ HTY: 0, HB: 0, CDC: 0, JC: 0 });
+const emptyCounts = (): PlantCounts => ({ HTY: 0, HB: 0, CDC: 0, JC: 0, OTHERS: 0 });
 
 export function parseDisplayData(value: unknown): DisplayData {
   if (
