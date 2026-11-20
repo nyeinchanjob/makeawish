@@ -191,7 +191,7 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
       </div>
       <fieldset>
         <legend className="text-sm font-medium text-foreground">Plant</legend>
-        <div className="mt-2 grid grid-cols-4 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
           {OFFICE_LOCATIONS.map((office) => (
             <button
               type="button"

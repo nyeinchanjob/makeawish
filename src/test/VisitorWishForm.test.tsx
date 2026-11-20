@@ -62,6 +62,20 @@ describe("VisitorWishForm required fields and lantern launch", () => {
     });
   });
 
+  it("submits a wish for the OTHERS plant", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<VisitorWishForm onSubmit={onSubmit} onSuccess={vi.fn()} />);
+    fillRequiredFields();
+    fireEvent.click(screen.getByRole("button", { name: "OTHERS" }));
+    fireEvent.submit(document.querySelector("form")!);
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ plant: "OTHERS" }),
+      ),
+    );
+  });
+
   it.each(["aye@gmail.com", "aye@other.com"])(
     "rejects an external email %s",
     async (email) => {

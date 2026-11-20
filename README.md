@@ -28,7 +28,7 @@ npm run dev
 
 - `/`: employee name, company email, plant and a wish with at least three
   non-whitespace characters, with no application character maximum.
-- `/display`: live TV display of approved wishes from HTY, HB, CDC and JC, with aggregate plant counts.
+- `/display`: live TV display of approved wishes from HTY, HB, CDC, JC and OTHERS, with aggregate plant counts.
 - `/submit`: redirects to `/`, preserving existing submission QR links.
 - `/admin`: PIN login, auto-approval, moderation, search, CSV export and confirmed clear-all.
 - `/admin/login`: redirects to `/admin`.
@@ -93,7 +93,7 @@ routes `/api/*` to its built-in Functions; no external API URL is used.
    Keep consistent automatic indexing (including `/status/?`
    and `/created_on/?`); a composite index on `status ASC, created_on DESC` can reduce
    the RU cost of filtered recent-wish queries. This implementation deliberately fans
-   out across the four plants for the combined display; `/plant` has low cardinality,
+   out across the five plants for the combined display; `/plant` has low cardinality,
    so monitor hot partitions and RU consumption as the event scales.
 2. Set these **server-side Static Web Apps application settings**, never `VITE_*` variables:
 

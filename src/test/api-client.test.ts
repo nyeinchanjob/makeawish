@@ -34,7 +34,13 @@ describe("isolated browser API fallback", () => {
       const data = await client.apiRequest<DisplayData>(
         "/wishes?status=approved",
       );
-      expect(data.counts).toEqual({ HTY: 2, HB: 2, CDC: 2, JC: 2 });
+      expect(data.counts).toEqual({
+        HTY: 2,
+        HB: 2,
+        CDC: 2,
+        JC: 2,
+        OTHERS: 0,
+      });
       expect(
         data.wishes.some((wish) => /[\u1000-\u109f]/.test(wish.message)),
       ).toBe(true);
@@ -82,7 +88,7 @@ describe("isolated browser API fallback", () => {
       await client.apiRequest("/wishes/all", "DELETE", undefined, "2026");
       expect(await client.apiRequest("/wishes?status=approved")).toEqual({
         wishes: [],
-        counts: { HTY: 0, HB: 0, CDC: 0, JC: 0 },
+        counts: { HTY: 0, HB: 0, CDC: 0, JC: 0, OTHERS: 0 },
       });
       expect(await client.apiRequest("/settings")).toEqual({
         autoApprove: false,
@@ -183,7 +189,10 @@ describe("isolated browser API fallback", () => {
   });
 
   it("only switches back after explicit successful retry, without uploading local wishes", async () => {
-    const live = { wishes: [], counts: { HTY: 0, HB: 0, CDC: 0, JC: 0 } };
+    const live = {
+      wishes: [],
+      counts: { HTY: 0, HB: 0, CDC: 0, JC: 0, OTHERS: 0 },
+    };
     const fetcher = vi
       .fn()
       .mockRejectedValueOnce(new TypeError("Offline"))

@@ -143,7 +143,13 @@ export async function wishes(request: HttpRequest): Promise<HttpResponseInit> {
         )
         .fetchAll(),
     ]);
-    const counts: PlantCounts = { HTY: 0, HB: 0, CDC: 0, JC: 0 };
+    const counts: PlantCounts = {
+      HTY: 0,
+      HB: 0,
+      CDC: 0,
+      JC: 0,
+      OTHERS: 0,
+    };
     for (const row of totals.resources)
       if (isPlant(row.plant)) counts[row.plant] = row.count;
     return response({ wishes: latest.resources, counts });

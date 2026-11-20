@@ -33,7 +33,13 @@ describe("dev-only Vite middleware", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("X-Share-Light-Mode")).toBe("local-dev");
     const data = await response.json();
-    expect(data.counts).toEqual({ HTY: 2, HB: 2, CDC: 2, JC: 2 });
+    expect(data.counts).toEqual({
+      HTY: 2,
+      HB: 2,
+      CDC: 2,
+      JC: 2,
+      OTHERS: 0,
+    });
     expect(JSON.stringify(data.wishes)).not.toContain("email");
   });
 
@@ -81,7 +87,10 @@ describe("dev-only Vite middleware", () => {
     expect((await send("/wishes/all", "DELETE")).status).toBe(200);
     expect(
       await (await fetch(`${base}/wishes?status=approved`)).json(),
-    ).toEqual({ wishes: [], counts: { HTY: 0, HB: 0, CDC: 0, JC: 0 } });
+    ).toEqual({
+      wishes: [],
+      counts: { HTY: 0, HB: 0, CDC: 0, JC: 0, OTHERS: 0 },
+    });
     expect(await (await fetch(`${base}/settings`)).json()).toEqual({
       autoApprove: false,
     });

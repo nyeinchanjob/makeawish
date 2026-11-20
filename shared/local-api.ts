@@ -150,7 +150,7 @@ export function handleLocalRequest(
       );
       if (status === "all") return { status: 200, body: { wishes: sorted } };
       const approved = sorted.filter((wish) => wish.status === "approved");
-      const counts = { HTY: 0, HB: 0, CDC: 0, JC: 0 };
+      const counts = { HTY: 0, HB: 0, CDC: 0, JC: 0, OTHERS: 0 };
       for (const wish of approved) counts[wish.plant]++;
       return {
         status: 200,
