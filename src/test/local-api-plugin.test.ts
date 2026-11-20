@@ -43,6 +43,33 @@ describe("dev-only Vite middleware", () => {
     expect(JSON.stringify(data.wishes)).not.toContain("email");
   });
 
+  it("serves public status and locks every other local API route", async () => {
+    const statusResponse = await fetch(`${base}/status`);
+    expect(statusResponse.status).toBe(200);
+    expect(await statusResponse.json()).toEqual({ eventClosed: false });
+
+    const state = createLocalState();
+    expect(
+      handleLocalRequest(
+        state,
+        { path: "/status", method: "GET" },
+        "2026",
+        true,
+      ),
+    ).toEqual({ status: 200, body: { eventClosed: true } });
+    expect(
+      handleLocalRequest(
+        state,
+        { path: "/wishes?status=approved", method: "GET" },
+        "2026",
+        true,
+      ),
+    ).toEqual({
+      status: 403,
+      body: { error: "Event has concluded. API access is locked." },
+    });
+  });
+
   it("authenticates mutations, validates data and clears wishes without resetting settings", async () => {
     expect((await fetch(`${base}/wishes?status=all`)).status).toBe(401);
     const pin = process.env["ADMIN_PIN"] || "2026";

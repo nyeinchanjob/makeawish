@@ -3,6 +3,7 @@ import { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearWishes,
+  eventStatus,
   settings,
   wishById,
   wishes,
@@ -55,13 +56,17 @@ function request(method: string, path: string, value?: unknown, pin?: string) {
   });
 }
 const context = new InvocationContext();
-const invoke = (handler: typeof wishes, req: HttpRequest) =>
-  withErrors(handler)(req, context);
+const invoke = (
+  handler: typeof wishes,
+  req: HttpRequest,
+  publicWhenClosed = false,
+) => withErrors(handler, publicWhenClosed)(req, context);
 
 describe("Cosmos-backed Functions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     delete process.env.ADMIN_PIN;
+    delete process.env.EVENT_CLOSED;
     mocks.getContainer.mockResolvedValue({
       items: { query: mocks.query, create: mocks.create, upsert: mocks.upsert },
       item: mocks.item,
@@ -73,6 +78,54 @@ describe("Cosmos-backed Functions", () => {
     });
     mocks.read.mockResolvedValue({ resource: settingsRecord });
   });
+
+  it("keeps status public and reports whether the event is closed", async () => {
+    expect(
+      await invoke(eventStatus, request("GET", "status"), true),
+    ).toMatchObject({
+      status: 200,
+      jsonBody: { eventClosed: false },
+    });
+
+    process.env.EVENT_CLOSED = "true";
+    expect(
+      await invoke(eventStatus, request("GET", "status"), true),
+    ).toMatchObject({
+      status: 200,
+      jsonBody: { eventClosed: true },
+    });
+    expect(mocks.getContainer).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["GET", "wishes?status=approved", wishes],
+    ["POST", "wishes", wishes],
+    ["DELETE", "wishes/all", clearWishes],
+    ["PATCH", "wishes/wish-1", wishById],
+    ["DELETE", "wishes/wish-1", wishById],
+    ["GET", "settings", settings],
+    ["PATCH", "settings", settings],
+    ["PUT", "settings", settings],
+  ] as const)(
+    "locks %s %s before touching data",
+    async (method, path, handler) => {
+      process.env.EVENT_CLOSED = "true";
+      const result = await invoke(
+        handler,
+        request(method, path, record, "2026"),
+      );
+      expect(result).toMatchObject({
+        status: 403,
+        jsonBody: {
+          error: "Event has concluded. API access is locked.",
+        },
+      });
+      expect(mocks.getContainer).not.toHaveBeenCalled();
+      expect(mocks.query).not.toHaveBeenCalled();
+      expect(mocks.item).not.toHaveBeenCalled();
+      expect(mocks.upsert).not.toHaveBeenCalled();
+    },
+  );
 
   it("uses projected public queries and returns aggregate counts above the 120-wish limit", async () => {
     mocks.query

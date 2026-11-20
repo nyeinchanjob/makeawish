@@ -1,12 +1,19 @@
 import { app } from "@azure/functions";
 import {
   clearWishes,
+  eventStatus,
   settings,
   wishById,
   wishes,
   withErrors,
 } from "./handlers";
 
+app.http("status", {
+  route: "status",
+  methods: ["GET"],
+  authLevel: "anonymous",
+  handler: withErrors(eventStatus, true),
+});
 app.http("wishes", {
   route: "wishes",
   methods: ["GET", "POST"],

@@ -9,13 +9,17 @@ export function localApiPlugin(): Plugin {
       const state = createLocalState();
       const env = loadEnv(server.config.mode, server.config.envDir, "");
       const pin = process.env["ADMIN_PIN"] || env["ADMIN_PIN"] || "2026";
+      const isClosed =
+        (process.env["EVENT_CLOSED"] || env["EVENT_CLOSED"]) === "true";
       server.config.logger.info(
         "Share the Light: in-memory local API enabled. No Cosmos DB writes.",
       );
       server.middlewares.use(async (req, res, next) => {
         if (
           !req.url ||
-          !/^\/api\/(?:wishes(?:\/[^/?]+)?|settings)(?:\?|$)/.test(req.url)
+          !/^\/api\/(?:status|wishes(?:\/[^/?]+)?|settings)(?:\?|$)/.test(
+            req.url,
+          )
         ) {
           next();
           return;
@@ -50,6 +54,7 @@ export function localApiPlugin(): Plugin {
               ...(typeof provided === "string" ? { pin: provided } : {}),
             },
             pin,
+            isClosed,
           );
           res.statusCode = result.status;
           res.end(JSON.stringify(result.body));

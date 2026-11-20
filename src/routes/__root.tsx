@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { appSubtitle, appTitle } from "../lib/app-config";
+import { EventStatusGate } from "../components/EventStatusGate";
 
 function NotFoundComponent() {
   return (
@@ -130,7 +131,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <EventStatusGate>
+        <Outlet />
+      </EventStatusGate>
     </QueryClientProvider>
   );
 }
