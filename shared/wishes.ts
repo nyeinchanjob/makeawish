@@ -1,4 +1,4 @@
-export const PLANTS = ["HTY", "HB", "CDC", "JC"] as const;
+export const PLANTS = ["HTY", "HB", "CDC", "JC", "OTHERS"] as const;
 export type Plant = (typeof PLANTS)[number];
 export type WishStatus = "approved" | "pending" | "rejected";
 export const EMAIL_DOMAIN = "@coca-cola.com.mm";
