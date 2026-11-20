@@ -8,7 +8,6 @@
     "COSMOS_DATABASE": "makeawish-db",
     "COSMOS_CONTAINER": "wishes",
     "ADMIN_PIN": "2026",
-    "EVENT_CLOSED": "false",
     "VITE_ADMIN_PIN": "2026"
   }
 }

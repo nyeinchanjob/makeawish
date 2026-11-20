@@ -97,25 +97,24 @@ routes `/api/*` to its built-in Functions; no external API URL is used.
    so monitor hot partitions and RU consumption as the event scales.
 2. Set these **server-side Static Web Apps application settings**, never `VITE_*` variables:
 
-   | Setting            | Default                                           |
-   | ------------------ | ------------------------------------------------- |
-   | `COSMOS_ENDPOINT`  | required Cosmos account endpoint                  |
-   | `COSMOS_KEY`       | required Cosmos account key                       |
-   | `COSMOS_DATABASE`  | `makeawish-db`                                    |
-   | `COSMOS_CONTAINER` | `wishes`                                          |
-   | `ADMIN_PIN`        | `2026` — **override before a public event**       |
-   | `EVENT_CLOSED`     | `false` — set exactly to `true` to lock the event |
+   | Setting            | Default                                     |
+   | ------------------ | ------------------------------------------- |
+   | `COSMOS_ENDPOINT`  | required Cosmos account endpoint            |
+   | `COSMOS_KEY`       | required Cosmos account key                 |
+   | `COSMOS_DATABASE`  | `makeawish-db`                              |
+   | `COSMOS_CONTAINER` | `wishes`                                    |
+   | `ADMIN_PIN`        | `2026` — **override before a public event** |
 
 3. Configure the existing GitHub Actions Static Web Apps deployment secret and deploy.
    The API uses the Node 20 Functions runtime. Cosmos credentials never reach the browser.
    The client is reused across warm invocations; the JavaScript SDK uses HTTPS gateway
    connections (not the .NET SDK's Direct/TCP mode).
 
-After the festival, set `EVENT_CLOSED=true` in the Static Web Apps application
-settings to show the Event Concluded screen and immediately return `403` from every
-API endpoint except public `GET /api/status`. Set it back to `false` (or remove it)
-to reopen the app without a code deployment. Static Web Apps may need to restart for
-an application-setting change to reach running Functions instances.
+The current Static Web Apps configuration applies a strict edge-level lockdown:
+unauthenticated requests to the SPA and `/api/*` receive `403 Forbidden`. With no
+login provider enabled, the app remains locked. The Functions also use a second
+defense layer that returns `403` with `{ "error": "Forbidden" }` before touching
+Cosmos DB if an API request reaches the worker.
 
 The workflow compiles and installs API dependencies under Node 20 before switching
 to Node 24 for the frontend. The Functions entry is `api/dist/api/src/index.js`;

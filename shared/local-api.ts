@@ -117,7 +117,6 @@ export function handleLocalRequest(
   state: LocalState,
   request: LocalRequest,
   adminPin = "2026",
-  eventClosed = false,
 ): {
   status: number;
   body: unknown;
@@ -126,15 +125,6 @@ export function handleLocalRequest(
     const url = new URL(request.path, "http://local");
     const path = url.pathname;
     const method = request.method.toUpperCase();
-    if (path === "/status") {
-      if (method !== "GET") throw new LocalApiError(405, "Method not allowed.");
-      return { status: 200, body: { eventClosed } };
-    }
-    if (eventClosed)
-      throw new LocalApiError(
-        403,
-        "Event has concluded. API access is locked.",
-      );
     const admin = () => {
       if (request.pin !== adminPin)
         throw new LocalApiError(401, "Incorrect admin PIN.");

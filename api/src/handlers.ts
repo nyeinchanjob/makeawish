@@ -76,18 +76,11 @@ function errorDetails(error: unknown): string {
 
 export function withErrors(
   handler: (request: HttpRequest) => Promise<HttpResponseInit>,
-  publicWhenClosed = false,
 ) {
   return async (
     request: HttpRequest,
     context: InvocationContext,
   ): Promise<HttpResponseInit> => {
-    const isClosed = process.env.EVENT_CLOSED === "true";
-    if (isClosed && !publicWhenClosed)
-      return response(
-        { error: "Event has concluded. API access is locked." },
-        403,
-      );
     try {
       return await handler(request);
     } catch (error) {
@@ -123,9 +116,8 @@ export function withErrors(
   };
 }
 
-export async function eventStatus(): Promise<HttpResponseInit> {
-  const isClosed = process.env.EVENT_CLOSED === "true";
-  return response({ eventClosed: isClosed });
+export async function forbidden(): Promise<HttpResponseInit> {
+  return response({ error: "Forbidden" }, 403);
 }
 
 export async function wishes(request: HttpRequest): Promise<HttpResponseInit> {
