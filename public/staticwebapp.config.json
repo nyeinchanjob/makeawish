@@ -1,32 +1,23 @@
-// {
-//   "navigationFallback": {
-//     "rewrite": "/index.html",
-//     "exclude": [
-//       "/api/*",
-//       "/assets/*",
-//       "/*.{css,js,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf}"
-//     ]
-//   },
-//   "platform": { "apiRuntime": "node:20" }
-// }
 {
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/api/*",
+      "/assets/*",
+      "/*.{css,js,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf}"
+    ]
+  },
   "routes": [
     {
-      "route": "/api/status",
+      "route": "/api/*",
       "allowedRoles": ["anonymous"]
     },
     {
-      "route": "/api/*",
-      "allowedRoles": ["authenticated"]
-    },
-    {
       "route": "/*",
-      "allowedRoles": ["authenticated"]
+      "allowedRoles": ["anonymous"]
     }
   ],
-  "responseOverrides": {
-    "401": {
-      "statusCode": 403
-    }
+  "platform": {
+    "apiRuntime": "node:20"
   }
 }
